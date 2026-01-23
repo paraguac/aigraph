@@ -265,14 +265,108 @@ policies:
 # Install dependencies
 npm install
 
-# Build
-npm run build
+# Build the action and CLI
+npm run build:all
+
+# Or build individually:
+npm run build      # Build only the GitHub Action
+npm run build:cli  # Build only the CLI
 
 # Test
 npm test
 
 # Lint
 npm run lint
+```
+
+## CLI Usage
+
+The AIGraph Scanner can be used as a standalone CLI tool, not just as a GitHub Action.
+
+### Installation
+
+```bash
+# Install globally from npm
+npm install -g aigraph-scanner
+
+# Or run directly from this repo
+node dist/cli.js
+```
+
+### CLI Options
+
+```
+Usage: aigraph-scanner [options] [path-or-repo]
+
+Arguments:
+  path-or-repo   Local path to scan OR a public GitHub repository
+                 Formats: owner/repo, owner/repo@branch, https://github.com/owner/repo
+                 Default: . (current directory)
+
+Options:
+  -s, --spec <file>      Path to the spec file (default: .aigraph-spec.yml)
+  -f, --format <format>  Output format: json, markdown, text (default: text)
+  -q, --quiet            Suppress progress messages, only output results
+  --no-fail              Don't exit with error code on violations
+  -h, --help             Show this help message
+  -v, --version          Show version number
+```
+
+### CLI Examples
+
+```bash
+# Scan current directory
+aigraph-scanner
+
+# Scan a specific directory
+aigraph-scanner ./src
+
+# Scan a public GitHub repository
+aigraph-scanner langchain-ai/langchain
+
+# Scan a specific branch
+aigraph-scanner openai/openai-python@main
+
+# Use a custom spec file
+aigraph-scanner -s custom-spec.yml ./src
+
+# Output as JSON (useful for piping)
+aigraph-scanner -f json .
+
+# Quiet mode with JSON output
+aigraph-scanner -q -f json .
+
+# Don't fail on violations (useful in CI where you just want a report)
+aigraph-scanner --no-fail ./src
+```
+
+## Programmatic Usage
+
+The scanner can also be used as a library in your Node.js/TypeScript code:
+
+```typescript
+import { scan, FileScanner, PolicyEnforcer } from 'aigraph-scanner';
+
+// Simple usage with the scan function
+const result = await scan({
+  target: './my-project',
+  specFile: '.aigraph-spec.yml',
+  outputFormat: 'json',
+  log: console.log, // Optional logging function
+});
+
+console.log(result.formattedOutput);
+console.log(`Violations: ${result.violationCount}`);
+
+// Or use the lower-level APIs directly
+const scanner = new FileScanner('./my-project');
+const scanResults = await scanner.scan();
+
+const spec = await PolicyEnforcer.loadSpec('.aigraph-spec.yml');
+const enforcer = new PolicyEnforcer(spec);
+const results = enforcer.enforce(scanResults);
+
+console.log(results.violations);
 ```
 
 ## License
