@@ -11106,7 +11106,7 @@ const github_repo_1 = __nccwpck_require__(2505);
  * ```
  */
 async function scan(options) {
-    const { target, specFile = '.aigraph-spec.yml', outputFormat = 'text', log = () => { }, } = options;
+    const { target, specFile = '.aigraph-spec.yml', outputFormat = 'text', log = function noop() { }, } = options;
     let scanPath = target;
     let cloneResult;
     try {
@@ -13468,12 +13468,13 @@ async function main() {
     }
     // Handle version flag
     if (options.showVersion) {
-        // Read version from package.json
+        // Read version from package.json - using require for dynamic import at runtime
+        // eslint-disable-next-line @typescript-eslint/no-var-requires
         const packageJson = __nccwpck_require__(8330);
         console.log(`aigraph-scanner v${packageJson.version}`);
         process.exit(0);
     }
-    const log = options.quiet ? () => { } : (msg) => console.log(msg);
+    const log = options.quiet ? function noop() { } : (msg) => console.log(msg);
     log('🔍 AIGraph Scanner starting...');
     try {
         const result = await (0, core_1.scan)({

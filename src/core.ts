@@ -64,7 +64,7 @@ export async function scan(options: ScanOptions): Promise<ScanOutput> {
     target,
     specFile = '.aigraph-spec.yml',
     outputFormat = 'text',
-    log = () => {},
+    log = function noop() {},
   } = options;
 
   let scanPath = target;

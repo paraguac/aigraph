@@ -120,13 +120,14 @@ async function main() {
 
   // Handle version flag
   if (options.showVersion) {
-    // Read version from package.json
-    const packageJson = require('../package.json');
+    // Read version from package.json - using require for dynamic import at runtime
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const packageJson = require('../package.json') as { version: string };
     console.log(`aigraph-scanner v${packageJson.version}`);
     process.exit(0);
   }
 
-  const log = options.quiet ? () => {} : (msg: string) => console.log(msg);
+  const log = options.quiet ? function noop() {} : (msg: string) => console.log(msg);
 
   log('🔍 AIGraph Scanner starting...');
 
