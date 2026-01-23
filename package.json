@@ -3,13 +3,18 @@
   "version": "1.0.0",
   "description": "GitHub Action to scan repositories for AI models, MCP servers/tools, and Agentic AI frameworks",
   "main": "dist/index.js",
+  "bin": {
+    "aigraph-scanner": "./dist/cli.js"
+  },
   "scripts": {
     "build": "ncc build src/index.ts -o dist --source-map --license licenses.txt",
+    "build:cli": "ncc build src/cli.ts -o dist/cli-build --source-map && mv dist/cli-build/index.js dist/cli.js && rm -rf dist/cli-build",
+    "build:all": "npm run build && npm run build:cli",
     "test": "jest",
     "test:coverage": "jest --coverage",
     "lint": "eslint src/**/*.ts",
     "format": "prettier --write src/**/*.ts",
-    "all": "npm run format && npm run lint && npm run test && npm run build"
+    "all": "npm run format && npm run lint && npm run test && npm run build:all"
   },
   "keywords": [
     "github-action",
