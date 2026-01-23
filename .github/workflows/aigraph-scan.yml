@@ -1,0 +1,25 @@
+name: AIGraph Scan
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+      
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        
+      - name: Run AIGraph Scanner
+        uses: ./
+        with:
+          spec-file: '.aigraph-spec.yml'
+          fail-on-violation: 'true'
+          output-format: 'markdown'
