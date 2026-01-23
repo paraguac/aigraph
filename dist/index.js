@@ -36990,10 +36990,19 @@ async function cloneGitHubRepo(repoRef) {
             cloneArgs.push('--branch', repoRef.ref);
         }
         cloneArgs.push(repoUrl, tempDir);
-        (0, child_process_1.execSync)(`git ${cloneArgs.join(' ')}`, {
+        // Use spawnSync with argument array to prevent command injection
+        const result = (0, child_process_1.spawnSync)('git', cloneArgs, {
             stdio: 'pipe',
             timeout: 120000, // 2 minute timeout
         });
+        if (result.error) {
+            throw result.error;
+        }
+        if (result.status !== 0) {
+            const error = new Error('Git clone failed');
+            error.stderr = result.stderr;
+            throw error;
+        }
         return {
             path: tempDir,
             cleanup: async () => {
@@ -37041,7 +37050,9 @@ function isGitHubRepoRef(str) {
         return false;
     }
     // Check for owner/repo format (with optional @ref)
-    return /^[a-zA-Z0-9_.-]+\/[a-zA-Z0-9_.-]+(@[a-zA-Z0-9_./-]+)?$/.test(str);
+    // GitHub names must start with alphanumeric, can contain hyphens/underscores, 
+    // and cannot start or end with dots
+    return /^[a-zA-Z0-9][a-zA-Z0-9_-]*\/[a-zA-Z0-9][a-zA-Z0-9_.-]*(@[a-zA-Z0-9_./-]+)?$/.test(str);
 }
 
 

@@ -7,7 +7,7 @@
 import * as path from 'path';
 import * as fs from 'fs';
 import * as os from 'os';
-import { execSync } from 'child_process';
+import { spawnSync } from 'child_process';
 
 /**
  * Parsed GitHub repository reference
@@ -101,10 +101,21 @@ export async function cloneGitHubRepo(repoRef: GitHubRepoRef): Promise<CloneResu
     
     cloneArgs.push(repoUrl, tempDir);
 
-    execSync(`git ${cloneArgs.join(' ')}`, {
+    // Use spawnSync with argument array to prevent command injection
+    const result = spawnSync('git', cloneArgs, {
       stdio: 'pipe',
       timeout: 120000, // 2 minute timeout
     });
+
+    if (result.error) {
+      throw result.error;
+    }
+
+    if (result.status !== 0) {
+      const error = new Error('Git clone failed') as Error & { stderr?: Buffer };
+      error.stderr = result.stderr;
+      throw error;
+    }
 
     return {
       path: tempDir,
@@ -163,5 +174,7 @@ export function isGitHubRepoRef(str: string): boolean {
   }
   
   // Check for owner/repo format (with optional @ref)
-  return /^[a-zA-Z0-9_.-]+\/[a-zA-Z0-9_.-]+(@[a-zA-Z0-9_./-]+)?$/.test(str);
+  // GitHub names must start with alphanumeric, can contain hyphens/underscores, 
+  // and cannot start or end with dots
+  return /^[a-zA-Z0-9][a-zA-Z0-9_-]*\/[a-zA-Z0-9][a-zA-Z0-9_.-]*(@[a-zA-Z0-9_./-]+)?$/.test(str);
 }
