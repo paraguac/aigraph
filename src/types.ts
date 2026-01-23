@@ -83,6 +83,7 @@ export interface ScannerConfig {
   specFile: string;
   failOnViolation: boolean;
   outputFormat: 'json' | 'markdown' | 'text';
+  githubRepo?: string; // Optional GitHub repo to scan (e.g., 'owner/repo' or 'owner/repo@ref')
 }
 
 /**

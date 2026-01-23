@@ -7,6 +7,7 @@ import { FileScanner } from './scanners';
 import { PolicyEnforcer } from './policy';
 import { formatResults } from './formatter';
 import { ScannerConfig } from './types';
+import { parseGitHubRepo, cloneGitHubRepo, CloneResult } from './github-repo';
 
 /**
  * Get action inputs
@@ -17,6 +18,7 @@ function getInputs(): ScannerConfig {
     scanPath: core.getInput('scan-path') || '.',
     failOnViolation: core.getInput('fail-on-violation') !== 'false',
     outputFormat: (core.getInput('output-format') || 'markdown') as 'json' | 'markdown' | 'text',
+    githubRepo: core.getInput('github-repo') || undefined,
   };
 }
 
@@ -24,12 +26,28 @@ function getInputs(): ScannerConfig {
  * Main action runner
  */
 async function run(): Promise<void> {
+  let cloneResult: CloneResult | undefined;
+  
   try {
     core.info('🔍 AIGraph Scanner starting...');
     
     const config = getInputs();
+    let scanPath = config.scanPath;
+
+    // Handle GitHub repo scanning
+    if (config.githubRepo) {
+      core.info(`🌐 GitHub repository: ${config.githubRepo}`);
+      core.info('📥 Cloning repository...');
+      
+      const repoRef = parseGitHubRepo(config.githubRepo);
+      cloneResult = await cloneGitHubRepo(repoRef);
+      scanPath = cloneResult.path;
+      
+      core.info(`✅ Repository cloned to temporary directory`);
+    } else {
+      core.info(`📁 Scan path: ${scanPath}`);
+    }
     
-    core.info(`📁 Scan path: ${config.scanPath}`);
     core.info(`📋 Spec file: ${config.specFile}`);
     core.info(`📊 Output format: ${config.outputFormat}`);
 
@@ -40,7 +58,7 @@ async function run(): Promise<void> {
 
     // Scan files
     core.info('🔎 Scanning files for AI components...');
-    const scanner = new FileScanner(config.scanPath);
+    const scanner = new FileScanner(scanPath);
     const scanResults = await scanner.scan();
 
     core.info(`📊 Found ${scanResults.detections.length} detections in ${scanResults.summary.filesScanned} files`);
@@ -88,6 +106,11 @@ async function run(): Promise<void> {
     core.info('🎉 AIGraph Scanner completed successfully');
   } catch (error) {
     core.setFailed(`Action failed: ${(error as Error).message}`);
+  } finally {
+    // Clean up cloned repository if any
+    if (cloneResult) {
+      await cloneResult.cleanup();
+    }
   }
 }
 

@@ -36879,6 +36879,174 @@ function formatResults(results, format) {
 
 /***/ }),
 
+/***/ 2505:
+/***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
+
+"use strict";
+
+/**
+ * AIGraph Scanner - GitHub Repository Module
+ *
+ * This module handles cloning and managing public GitHub repositories for scanning.
+ */
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.parseGitHubRepo = parseGitHubRepo;
+exports.cloneGitHubRepo = cloneGitHubRepo;
+exports.isGitHubRepoRef = isGitHubRepoRef;
+const path = __importStar(__nccwpck_require__(6928));
+const fs = __importStar(__nccwpck_require__(9896));
+const os = __importStar(__nccwpck_require__(857));
+const child_process_1 = __nccwpck_require__(5317);
+/**
+ * Parse a GitHub repository reference string
+ * Supports formats:
+ * - owner/repo
+ * - owner/repo@ref (branch, tag, or commit)
+ * - https://github.com/owner/repo
+ * - https://github.com/owner/repo/tree/branch
+ */
+function parseGitHubRepo(repoString) {
+    let normalized = repoString.trim();
+    let ref;
+    // Handle full GitHub URLs
+    if (normalized.startsWith('https://github.com/') || normalized.startsWith('http://github.com/')) {
+        normalized = normalized.replace(/^https?:\/\/github\.com\//, '');
+        // Remove .git suffix if present
+        normalized = normalized.replace(/\.git$/, '');
+        // Handle /tree/branch or /tree/tag patterns
+        const treeMatch = normalized.match(/^([^/]+)\/([^/]+)\/tree\/(.+)$/);
+        if (treeMatch) {
+            return {
+                owner: treeMatch[1],
+                repo: treeMatch[2],
+                ref: treeMatch[3],
+            };
+        }
+    }
+    // Handle owner/repo@ref format
+    const atMatch = normalized.match(/^([^/@]+)\/([^/@]+)@(.+)$/);
+    if (atMatch) {
+        return {
+            owner: atMatch[1],
+            repo: atMatch[2],
+            ref: atMatch[3],
+        };
+    }
+    // Handle simple owner/repo format
+    const simpleMatch = normalized.match(/^([^/]+)\/([^/]+)$/);
+    if (simpleMatch) {
+        return {
+            owner: simpleMatch[1],
+            repo: simpleMatch[2],
+            ref,
+        };
+    }
+    throw new Error(`Invalid GitHub repository format: "${repoString}". ` +
+        'Expected formats: owner/repo, owner/repo@ref, or https://github.com/owner/repo');
+}
+/**
+ * Clone a public GitHub repository to a temporary directory
+ */
+async function cloneGitHubRepo(repoRef) {
+    const tempDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), `aigraph-scan-${repoRef.owner}-${repoRef.repo}-`));
+    const repoUrl = `https://github.com/${repoRef.owner}/${repoRef.repo}.git`;
+    try {
+        // Clone with shallow depth for efficiency
+        const cloneArgs = ['clone', '--depth', '1'];
+        if (repoRef.ref) {
+            cloneArgs.push('--branch', repoRef.ref);
+        }
+        cloneArgs.push(repoUrl, tempDir);
+        (0, child_process_1.execSync)(`git ${cloneArgs.join(' ')}`, {
+            stdio: 'pipe',
+            timeout: 120000, // 2 minute timeout
+        });
+        return {
+            path: tempDir,
+            cleanup: async () => {
+                try {
+                    await fs.promises.rm(tempDir, { recursive: true, force: true });
+                }
+                catch {
+                    // Ignore cleanup errors
+                }
+            },
+        };
+    }
+    catch (error) {
+        // Clean up on failure
+        try {
+            await fs.promises.rm(tempDir, { recursive: true, force: true });
+        }
+        catch {
+            // Ignore cleanup errors
+        }
+        const err = error;
+        const stderr = err.stderr?.toString() || '';
+        if (stderr.includes('not found') || stderr.includes('Repository not found')) {
+            throw new Error(`GitHub repository not found: ${repoRef.owner}/${repoRef.repo}. ` +
+                'Make sure the repository exists and is public.');
+        }
+        if (stderr.includes('could not find remote branch') || stderr.includes('Remote branch')) {
+            throw new Error(`Branch or ref "${repoRef.ref}" not found in ${repoRef.owner}/${repoRef.repo}.`);
+        }
+        throw new Error(`Failed to clone repository ${repoRef.owner}/${repoRef.repo}: ${err.message}`);
+    }
+}
+/**
+ * Check if a string looks like a GitHub repository reference
+ */
+function isGitHubRepoRef(str) {
+    if (!str)
+        return false;
+    // Check for GitHub URL
+    if (str.startsWith('https://github.com/') || str.startsWith('http://github.com/')) {
+        return true;
+    }
+    // Exclude local paths (starting with ., /, or ~)
+    if (str.startsWith('.') || str.startsWith('/') || str.startsWith('~')) {
+        return false;
+    }
+    // Check for owner/repo format (with optional @ref)
+    return /^[a-zA-Z0-9_.-]+\/[a-zA-Z0-9_.-]+(@[a-zA-Z0-9_./-]+)?$/.test(str);
+}
+
+
+/***/ }),
+
 /***/ 9407:
 /***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
 
@@ -36925,6 +37093,7 @@ const core = __importStar(__nccwpck_require__(7484));
 const scanners_1 = __nccwpck_require__(2039);
 const policy_1 = __nccwpck_require__(3618);
 const formatter_1 = __nccwpck_require__(1845);
+const github_repo_1 = __nccwpck_require__(2505);
 /**
  * Get action inputs
  */
@@ -36934,16 +37103,30 @@ function getInputs() {
         scanPath: core.getInput('scan-path') || '.',
         failOnViolation: core.getInput('fail-on-violation') !== 'false',
         outputFormat: (core.getInput('output-format') || 'markdown'),
+        githubRepo: core.getInput('github-repo') || undefined,
     };
 }
 /**
  * Main action runner
  */
 async function run() {
+    let cloneResult;
     try {
         core.info('🔍 AIGraph Scanner starting...');
         const config = getInputs();
-        core.info(`📁 Scan path: ${config.scanPath}`);
+        let scanPath = config.scanPath;
+        // Handle GitHub repo scanning
+        if (config.githubRepo) {
+            core.info(`🌐 GitHub repository: ${config.githubRepo}`);
+            core.info('📥 Cloning repository...');
+            const repoRef = (0, github_repo_1.parseGitHubRepo)(config.githubRepo);
+            cloneResult = await (0, github_repo_1.cloneGitHubRepo)(repoRef);
+            scanPath = cloneResult.path;
+            core.info(`✅ Repository cloned to temporary directory`);
+        }
+        else {
+            core.info(`📁 Scan path: ${scanPath}`);
+        }
         core.info(`📋 Spec file: ${config.specFile}`);
         core.info(`📊 Output format: ${config.outputFormat}`);
         // Load policy spec
@@ -36952,7 +37135,7 @@ async function run() {
         const enforcer = new policy_1.PolicyEnforcer(spec);
         // Scan files
         core.info('🔎 Scanning files for AI components...');
-        const scanner = new scanners_1.FileScanner(config.scanPath);
+        const scanner = new scanners_1.FileScanner(scanPath);
         const scanResults = await scanner.scan();
         core.info(`📊 Found ${scanResults.detections.length} detections in ${scanResults.summary.filesScanned} files`);
         // Enforce policies
@@ -36992,6 +37175,12 @@ async function run() {
     }
     catch (error) {
         core.setFailed(`Action failed: ${error.message}`);
+    }
+    finally {
+        // Clean up cloned repository if any
+        if (cloneResult) {
+            await cloneResult.cleanup();
+        }
     }
 }
 // Run the action
