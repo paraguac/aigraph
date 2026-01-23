@@ -1,0 +1,70 @@
+# AIGraph Scanner Spec File
+# This file defines allow/deny policies for AI components in your repository
+version: "1.0"
+
+policies:
+  # AI Models policy
+  # Use 'allowlist' to only allow specific models
+  # Use 'denylist' to block specific models
+  models:
+    mode: allowlist
+    items:
+      # OpenAI models
+      - gpt-4
+      - gpt-4o
+      - gpt-3.5
+      - o1
+      - text-embedding
+      # Anthropic models
+      - claude
+      # Open source models
+      - llama
+      - mistral
+      - phi
+    patterns:
+      # Allow all GPT models
+      - gpt-*
+
+  # AI Frameworks policy
+  frameworks:
+    mode: allowlist
+    items:
+      - langchain
+      - langgraph
+      - langsmith
+      - llamaindex
+      - semantic-kernel
+      - haystack
+    patterns: []
+
+  # AI Platforms policy
+  platforms:
+    mode: allowlist
+    items:
+      # Cloud platforms
+      - aws-bedrock
+      - azure-openai
+      - azure-ai-foundry
+      - gcp-vertex-ai
+      # Inference platforms
+      - huggingface-inference
+      - ollama
+    patterns: []
+
+  # MCP Servers policy
+  mcpServers:
+    mode: denylist
+    items:
+      # Block potentially risky MCP servers
+      - mcp-server-puppeteer  # Browser automation
+    patterns: []
+
+  # MCP Tools policy
+  mcpTools:
+    mode: allowlist
+    items:
+      - mcp-sdk
+      - mcp-client
+      - mcp-tool-generic
+    patterns:
+      - mcp-*
