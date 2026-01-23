@@ -69,6 +69,7 @@ export interface ScannerConfig {
     specFile: string;
     failOnViolation: boolean;
     outputFormat: 'json' | 'markdown' | 'text';
+    githubRepo?: string;
 }
 /**
  * Pattern definition for detection

@@ -38,6 +38,41 @@ jobs:
           fail-on-violation: 'true'
 ```
 
+### Scan a Public GitHub Repository
+
+You can scan any public GitHub repository without checking it out first:
+
+```yaml
+name: AIGraph Scan External Repo
+
+on:
+  workflow_dispatch:
+    inputs:
+      repository:
+        description: 'GitHub repository to scan (e.g., owner/repo)'
+        required: true
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Run AIGraph Scanner
+        uses: pararohan/aigraph@v1
+        with:
+          github-repo: ${{ github.event.inputs.repository }}
+          spec-file: '.aigraph-spec.yml'
+          fail-on-violation: 'false'
+```
+
+You can also specify a branch or tag:
+
+```yaml
+- name: Scan specific branch
+  uses: pararohan/aigraph@v1
+  with:
+    github-repo: 'langchain-ai/langchain@v0.1.0'
+```
+
 ### Create a Spec File
 
 Create `.aigraph-spec.yml` in your repository root:
@@ -92,6 +127,7 @@ policies:
 | `scan-path` | Path to scan | `.` |
 | `fail-on-violation` | Fail if violations found | `true` |
 | `output-format` | Output format (json, markdown, text) | `markdown` |
+| `github-repo` | Public GitHub repo to scan (e.g., `owner/repo`) | `''` |
 
 ## Outputs
 
