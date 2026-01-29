@@ -13,7 +13,7 @@ export declare function formatAsJson(results: ScanResults): string;
  */
 export declare function formatAsMarkdown(results: ScanResults): string;
 /**
- * Format scan results as plain text
+ * Format scan results as plain text with tables
  */
 export declare function formatAsText(results: ScanResults): string;
 /**

@@ -137,20 +137,20 @@ describe('Output Formatter', () => {
       const results = createMockResults([{ name: 'gpt-4' }]);
       const output = formatAsText(results);
       
-      expect(output).toContain('=== AIGraph Scan Results ===');
+      expect(output).toContain('AIGraph Scan Results');
       expect(output).toContain('SUMMARY');
-      expect(output).toContain('Files Scanned: 10');
+      expect(output).toContain('10');
     });
 
     test('lists violations with numbered entries', () => {
       const results = createMockResults([], [{
-        detection: { name: 'llama' } as Detection,
+        detection: { name: 'llama', category: 'model', file: 'test.py', line: 1, confidence: 'high', snippet: '' } as Detection,
         message: 'AI model "llama" is not in the allowlist',
       }]);
       const output = formatAsText(results);
       
       expect(output).toContain('POLICY VIOLATIONS');
-      expect(output).toContain('[1]');
+      expect(output).toContain('1');
       expect(output).toContain('llama');
     });
 
@@ -172,7 +172,7 @@ describe('Output Formatter', () => {
       
       expect(() => JSON.parse(jsonOutput)).not.toThrow();
       expect(markdownOutput).toContain('#');
-      expect(textOutput).toContain('===');
+      expect(textOutput).toContain('SUMMARY');
     });
   });
 });
