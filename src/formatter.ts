@@ -42,6 +42,8 @@ export function formatAsMarkdown(results: ScanResults): string {
       'platform': 'AI Platforms',
       'mcp-server': 'MCP Servers',
       'mcp-tool': 'MCP Tools',
+      'api-endpoint': 'API Endpoints',
+      'infrastructure': 'Infrastructure',
     };
 
     for (const [category, label] of Object.entries(categoryLabels)) {
@@ -156,6 +158,8 @@ function formatCategory(category: DetectionCategory): string {
     'platform': 'AI Platform',
     'mcp-server': 'MCP Server',
     'mcp-tool': 'MCP Tool',
+    'api-endpoint': 'API Endpoint',
+    'infrastructure': 'Infrastructure',
   };
   return labels[category];
 }
@@ -170,6 +174,8 @@ function groupByCategory(detections: Detection[]): Record<DetectionCategory, Det
     'platform': [],
     'mcp-server': [],
     'mcp-tool': [],
+    'api-endpoint': [],
+    'infrastructure': [],
   };
 
   for (const detection of detections) {

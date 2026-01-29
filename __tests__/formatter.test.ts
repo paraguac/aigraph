@@ -43,6 +43,8 @@ describe('Output Formatter', () => {
         'platform': detections.filter(d => d.category === 'platform').length,
         'mcp-server': detections.filter(d => d.category === 'mcp-server').length,
         'mcp-tool': detections.filter(d => d.category === 'mcp-tool').length,
+        'api-endpoint': detections.filter(d => d.category === 'api-endpoint').length,
+        'infrastructure': detections.filter(d => d.category === 'infrastructure').length,
       },
       violationsByCategory: {
         'model': violations.length,
@@ -50,6 +52,8 @@ describe('Output Formatter', () => {
         'platform': 0,
         'mcp-server': 0,
         'mcp-tool': 0,
+        'api-endpoint': 0,
+        'infrastructure': 0,
       },
     },
   });

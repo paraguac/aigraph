@@ -3,6 +3,9 @@
  *
  * This module provides the core scanning functionality that can be used
  * independently of the GitHub Action context. Use this for CLI or library usage.
+ *
+ * Enhanced with CodeQL integration, Jupyter notebook support,
+ * Infrastructure as Code scanning, and configurable ignore patterns.
  */
 import { ScanResults } from './types';
 /**
@@ -19,6 +22,20 @@ export interface ScanOptions {
     failOnViolation?: boolean;
     /** Optional logging function */
     log?: (message: string) => void;
+    /** Whether to use CodeQL for AST-based analysis */
+    useCodeQL?: boolean;
+    /** Whether to scan Jupyter notebooks (default: true) */
+    scanNotebooks?: boolean;
+    /** Whether to scan IaC files (default: true) */
+    scanIaC?: boolean;
+    /** Whether to include detections from comments (default: false) */
+    includeComments?: boolean;
+    /** Whether to include detections from strings (default: true) */
+    includeStrings?: boolean;
+    /** Additional directories to ignore */
+    ignoreDirs?: string[];
+    /** Additional file patterns to ignore */
+    ignoreFiles?: string[];
 }
 /**
  * Result of running the scanner
@@ -49,12 +66,21 @@ export interface ScanOutput {
  * // Scan a GitHub repository
  * const result = await scan({ target: 'owner/repo@main' });
  * console.log(result.results.violations);
+ *
+ * // Use CodeQL for deeper analysis
+ * const result = await scan({ target: '.', useCodeQL: true });
+ *
+ * // Ignore test directories
+ * const result = await scan({ target: '.', ignoreDirs: ['test', '__tests__'] });
  * ```
  */
 export declare function scan(options: ScanOptions): Promise<ScanOutput>;
-export { FileScanner } from './scanners';
+export { FileScanner, FileScannerOptions } from './scanners';
+export { CodeQLScanner, runCodeQLScan } from './scanners';
+export { JupyterScanner, scanJupyterNotebook } from './scanners';
+export { IaCScanner, scanIaCFile, isIaCFile } from './scanners';
 export { PolicyEnforcer } from './policy';
 export { formatResults, formatAsJson, formatAsMarkdown, formatAsText } from './formatter';
 export { parseGitHubRepo, cloneGitHubRepo, isGitHubRepoRef } from './github-repo';
 export * from './types';
-export { ALL_PATTERNS, MODEL_PATTERNS, FRAMEWORK_PATTERNS, PLATFORM_PATTERNS, MCP_SERVER_PATTERNS, MCP_TOOL_PATTERNS } from './patterns';
+export { ALL_PATTERNS, MODEL_PATTERNS, FRAMEWORK_PATTERNS, PLATFORM_PATTERNS, MCP_SERVER_PATTERNS, MCP_TOOL_PATTERNS, API_ENDPOINT_PATTERNS } from './patterns';

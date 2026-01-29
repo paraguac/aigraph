@@ -140,16 +140,17 @@ export class PolicyEnforcer {
    * Get the policy rule for a detection category
    */
   private getPolicyForCategory(category: DetectionCategory): PolicyRule | undefined {
-    const categoryMap: Record<DetectionCategory, keyof AIGraphSpec['policies']> = {
+    const categoryMap: Partial<Record<DetectionCategory, keyof AIGraphSpec['policies']>> = {
       'model': 'models',
       'framework': 'frameworks',
       'platform': 'platforms',
       'mcp-server': 'mcpServers',
       'mcp-tool': 'mcpTools',
+      // Note: api-endpoint and infrastructure don't have policy rules yet
     };
 
     const policyKey = categoryMap[category];
-    return this.spec.policies[policyKey];
+    return policyKey ? this.spec.policies[policyKey] : undefined;
   }
 
   /**
@@ -212,10 +213,21 @@ export class PolicyEnforcer {
       }
     }
 
-    // Update summary
-    const violationsByCategory = { ...results.summary.violationsByCategory };
+    // Update summary with all categories
+    const violationsByCategory: Record<DetectionCategory, number> = {
+      'model': 0,
+      'framework': 0,
+      'platform': 0,
+      'mcp-server': 0,
+      'mcp-tool': 0,
+      'api-endpoint': 0,
+      'infrastructure': 0,
+    };
+    
     for (const violation of violations) {
-      violationsByCategory[violation.detection.category]++;
+      if (violationsByCategory[violation.detection.category] !== undefined) {
+        violationsByCategory[violation.detection.category]++;
+      }
     }
 
     return {
@@ -239,9 +251,11 @@ export class PolicyEnforcer {
       'platform': 'AI platform',
       'mcp-server': 'MCP server',
       'mcp-tool': 'MCP tool',
+      'api-endpoint': 'AI API endpoint',
+      'infrastructure': 'AI infrastructure resource',
     };
 
-    const categoryLabel = categoryLabels[detection.category];
+    const categoryLabel = categoryLabels[detection.category] || detection.category;
 
     if (rule === 'denied') {
       return `${categoryLabel} "${detection.name}" is explicitly denied by policy`;

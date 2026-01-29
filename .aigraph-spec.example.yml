@@ -68,3 +68,36 @@ policies:
       - mcp-tool-generic
     patterns:
       - mcp-*
+
+# Ignore configuration - exclude files/directories from scanning
+# This helps reduce false positives from test files, documentation, etc.
+ignore:
+  # Directories to ignore
+  directories:
+    - test
+    - tests
+    - __tests__
+    - spec
+    - __mocks__
+    - fixtures
+    - examples
+    - docs
+  
+  # File patterns to ignore
+  files:
+    - "*.test.ts"
+    - "*.test.js"
+    - "*.spec.ts"
+    - "*.spec.js"
+    - "*.test.py"
+    - "test_*.py"
+    - "*_test.py"
+    - "conftest.py"
+  
+  # Glob patterns to ignore
+  patterns:
+    - "**/test/**"
+    - "**/tests/**"
+    - "**/__tests__/**"
+    - "**/fixtures/**"
+    - "**/mocks/**"

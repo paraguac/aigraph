@@ -781,6 +781,171 @@ export const MCP_TOOL_PATTERNS: DetectionPattern[] = [
 ];
 
 /**
+ * AI API Endpoint patterns - detects direct HTTP calls to AI providers
+ */
+export const API_ENDPOINT_PATTERNS: DetectionPattern[] = [
+  // OpenAI API
+  {
+    category: 'api-endpoint',
+    name: 'openai-api',
+    patterns: [
+      /api\.openai\.com/gi,
+      /['"`]https?:\/\/api\.openai\.com/gi,
+    ],
+    confidence: 'high',
+    metadata: { provider: 'openai' }
+  },
+  // Anthropic API
+  {
+    category: 'api-endpoint',
+    name: 'anthropic-api',
+    patterns: [
+      /api\.anthropic\.com/gi,
+      /['"`]https?:\/\/api\.anthropic\.com/gi,
+    ],
+    confidence: 'high',
+    metadata: { provider: 'anthropic' }
+  },
+  // Google AI APIs
+  {
+    category: 'api-endpoint',
+    name: 'google-ai-api',
+    patterns: [
+      /generativelanguage\.googleapis\.com/gi,
+      /aiplatform\.googleapis\.com/gi,
+      /us-central1-aiplatform\.googleapis\.com/gi,
+    ],
+    confidence: 'high',
+    metadata: { provider: 'google' }
+  },
+  // Azure OpenAI
+  {
+    category: 'api-endpoint',
+    name: 'azure-openai-api',
+    patterns: [
+      /\.openai\.azure\.com/gi,
+      /\.cognitiveservices\.azure\.com/gi,
+    ],
+    confidence: 'high',
+    metadata: { provider: 'azure' }
+  },
+  // Hugging Face API
+  {
+    category: 'api-endpoint',
+    name: 'huggingface-api',
+    patterns: [
+      /api-inference\.huggingface\.co/gi,
+      /huggingface\.co\/api/gi,
+    ],
+    confidence: 'high',
+    metadata: { provider: 'huggingface' }
+  },
+  // Cohere API
+  {
+    category: 'api-endpoint',
+    name: 'cohere-api',
+    patterns: [
+      /api\.cohere\.ai/gi,
+      /api\.cohere\.com/gi,
+    ],
+    confidence: 'high',
+    metadata: { provider: 'cohere' }
+  },
+  // Replicate API
+  {
+    category: 'api-endpoint',
+    name: 'replicate-api',
+    patterns: [
+      /api\.replicate\.com/gi,
+    ],
+    confidence: 'high',
+    metadata: { provider: 'replicate' }
+  },
+  // Together AI API
+  {
+    category: 'api-endpoint',
+    name: 'together-api',
+    patterns: [
+      /api\.together\.xyz/gi,
+      /api\.together\.ai/gi,
+    ],
+    confidence: 'high',
+    metadata: { provider: 'together' }
+  },
+  // Groq API
+  {
+    category: 'api-endpoint',
+    name: 'groq-api',
+    patterns: [
+      /api\.groq\.com/gi,
+    ],
+    confidence: 'high',
+    metadata: { provider: 'groq' }
+  },
+  // Fireworks AI API
+  {
+    category: 'api-endpoint',
+    name: 'fireworks-api',
+    patterns: [
+      /api\.fireworks\.ai/gi,
+    ],
+    confidence: 'high',
+    metadata: { provider: 'fireworks' }
+  },
+  // Perplexity API
+  {
+    category: 'api-endpoint',
+    name: 'perplexity-api',
+    patterns: [
+      /api\.perplexity\.ai/gi,
+    ],
+    confidence: 'high',
+    metadata: { provider: 'perplexity' }
+  },
+  // OpenRouter API
+  {
+    category: 'api-endpoint',
+    name: 'openrouter-api',
+    patterns: [
+      /openrouter\.ai\/api/gi,
+    ],
+    confidence: 'high',
+    metadata: { provider: 'openrouter' }
+  },
+  // Mistral API
+  {
+    category: 'api-endpoint',
+    name: 'mistral-api',
+    patterns: [
+      /api\.mistral\.ai/gi,
+    ],
+    confidence: 'high',
+    metadata: { provider: 'mistral' }
+  },
+  // Local AI endpoints
+  {
+    category: 'api-endpoint',
+    name: 'ollama-local',
+    patterns: [
+      /localhost:11434/gi,
+      /127\.0\.0\.1:11434/gi,
+    ],
+    confidence: 'medium',
+    metadata: { provider: 'ollama', type: 'local' }
+  },
+  {
+    category: 'api-endpoint',
+    name: 'lmstudio-local',
+    patterns: [
+      /localhost:1234/gi,
+      /127\.0\.0\.1:1234/gi,
+    ],
+    confidence: 'medium',
+    metadata: { provider: 'lmstudio', type: 'local' }
+  },
+];
+
+/**
  * All patterns combined
  */
 export const ALL_PATTERNS: DetectionPattern[] = [
@@ -789,4 +954,5 @@ export const ALL_PATTERNS: DetectionPattern[] = [
   ...PLATFORM_PATTERNS,
   ...MCP_SERVER_PATTERNS,
   ...MCP_TOOL_PATTERNS,
+  ...API_ENDPOINT_PATTERNS,
 ];

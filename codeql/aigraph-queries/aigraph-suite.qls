@@ -1,0 +1,11 @@
+# AIGraph Scanner Query Suite
+# Runs all AI detection queries
+
+- description: AI Model and Framework Detection Queries
+- queries: .
+- include:
+    kind:
+      - problem
+      - path-problem
+- exclude:
+    tags contain: experimental

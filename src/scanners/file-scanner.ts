@@ -2,18 +2,23 @@
  * AIGraph Scanner - File Scanner Module
  * 
  * This module handles scanning files for AI-related patterns.
+ * Enhanced with context awareness, CodeQL integration, Jupyter notebook support,
+ * and Infrastructure as Code scanning.
  */
 
 import * as fs from 'fs';
 import * as path from 'path';
 import fg from 'fast-glob';
-import { Detection, DetectionPattern, ScanResults, ScanSummary, DetectionCategory } from '../types';
+import { Detection, DetectionPattern, ScanResults, ScanSummary, DetectionCategory, DetectionContext, IgnoreConfig } from '../types';
 import { ALL_PATTERNS } from '../patterns';
+import { CodeQLScanner, CodeQLScanOptions } from './codeql-scanner';
+import { JupyterScanner } from './jupyter-scanner';
+import { IaCScanner, isIaCFile } from './iac-scanner';
 
 /**
  * Files and directories to ignore during scanning
  */
-const IGNORE_PATTERNS = [
+const DEFAULT_IGNORE_PATTERNS = [
   '**/node_modules/**',
   '**/.git/**',
   '**/dist/**',
@@ -35,6 +40,12 @@ const IGNORE_PATTERNS = [
   '**/.aigraph-spec.yml',
   '**/.aigraph-spec.yaml',
   '**/.aigraph-spec.json',
+  // Exclude markdown files to reduce false positives
+  '**/*.md',
+  '**/README*',
+  '**/CHANGELOG*',
+  '**/LICENSE*',
+  '**/CONTRIBUTING*',
 ];
 
 /**
@@ -61,8 +72,6 @@ const SCAN_EXTENSIONS = [
   '*.yaml',
   '*.json',
   '*.toml',
-  '*.md',
-  '*.txt',
   '*.env*',
   '*.config.*',
   '*Dockerfile*',
@@ -73,7 +82,36 @@ const SCAN_EXTENSIONS = [
   'go.mod',
   'Gemfile',
   'composer.json',
+  // Jupyter notebooks
+  '*.ipynb',
+  // Infrastructure as Code
+  '*.tf',
+  '*.tfvars',
+  'docker-compose*.yml',
+  'docker-compose*.yaml',
+  'compose.yml',
+  'compose.yaml',
+  'chart.yaml',
+  'values.yaml',
 ];
+
+/**
+ * Scanner options
+ */
+export interface FileScannerOptions {
+  /** Additional ignore patterns */
+  ignoreConfig?: IgnoreConfig;
+  /** Whether to use CodeQL for AST-based analysis */
+  useCodeQL?: boolean;
+  /** Whether to scan Jupyter notebooks */
+  scanNotebooks?: boolean;
+  /** Whether to scan IaC files */
+  scanIaC?: boolean;
+  /** Whether to include detections from comments */
+  includeComments?: boolean;
+  /** Whether to include detections from string literals */
+  includeStrings?: boolean;
+}
 
 /**
  * Scanner class for detecting AI patterns in files
@@ -81,10 +119,58 @@ const SCAN_EXTENSIONS = [
 export class FileScanner {
   private patterns: DetectionPattern[];
   private scanPath: string;
+  private options: FileScannerOptions;
+  private jupyterScanner: JupyterScanner;
+  private iacScanner: IaCScanner;
 
-  constructor(scanPath: string, patterns: DetectionPattern[] = ALL_PATTERNS) {
+  constructor(
+    scanPath: string, 
+    patterns: DetectionPattern[] = ALL_PATTERNS,
+    options: FileScannerOptions = {}
+  ) {
     this.scanPath = path.resolve(scanPath);
     this.patterns = patterns;
+    this.options = {
+      scanNotebooks: true,
+      scanIaC: true,
+      includeComments: false,
+      includeStrings: true,
+      ...options,
+    };
+    this.jupyterScanner = new JupyterScanner({ patterns });
+    this.iacScanner = new IaCScanner();
+  }
+
+  /**
+   * Build ignore patterns from config
+   */
+  private buildIgnorePatterns(): string[] {
+    const patterns = [...DEFAULT_IGNORE_PATTERNS];
+    
+    if (this.options.ignoreConfig) {
+      const config = this.options.ignoreConfig;
+      
+      // Add directory ignores
+      if (config.directories) {
+        for (const dir of config.directories) {
+          patterns.push(`**/${dir}/**`);
+        }
+      }
+      
+      // Add file pattern ignores
+      if (config.files) {
+        for (const file of config.files) {
+          patterns.push(`**/${file}`);
+        }
+      }
+      
+      // Add glob pattern ignores
+      if (config.patterns) {
+        patterns.push(...config.patterns);
+      }
+    }
+    
+    return patterns;
   }
 
   /**
@@ -92,10 +178,11 @@ export class FileScanner {
    */
   async getFilesToScan(): Promise<string[]> {
     const patterns = SCAN_EXTENSIONS.map(ext => `**/${ext}`);
+    const ignorePatterns = this.buildIgnorePatterns();
     
     const files = await fg(patterns, {
       cwd: this.scanPath,
-      ignore: IGNORE_PATTERNS,
+      ignore: ignorePatterns,
       absolute: true,
       dot: true,
       onlyFiles: true,
@@ -105,10 +192,68 @@ export class FileScanner {
   }
 
   /**
+   * Detect the context of a match (code, comment, string, etc.)
+   */
+  private detectContext(line: string, matchIndex: number, filePath: string): DetectionContext {
+    const ext = path.extname(filePath).toLowerCase();
+    const trimmedLine = line.trim();
+    
+    // Check for comment patterns based on language
+    const singleLineComments = ['#', '//', '--', ';', '%'];
+    const multiLineCommentStarts = ['/*', '"""', "'''", '<!--'];
+    
+    // Python/Ruby/Shell comments
+    if (['.py', '.rb', '.sh', '.bash', '.yml', '.yaml'].includes(ext)) {
+      if (trimmedLine.startsWith('#')) return 'comment';
+    }
+    
+    // JavaScript/TypeScript/Java/C# comments
+    if (['.js', '.ts', '.jsx', '.tsx', '.java', '.cs', '.go', '.rs', '.swift', '.kt'].includes(ext)) {
+      if (trimmedLine.startsWith('//')) return 'comment';
+      if (trimmedLine.startsWith('/*') || trimmedLine.startsWith('*')) return 'comment';
+    }
+    
+    // Check if match is inside a string before the comment
+    const beforeMatch = line.substring(0, matchIndex);
+    const quoteCount = (beforeMatch.match(/['"]/g) || []).length;
+    if (quoteCount % 2 === 1) {
+      return 'string';
+    }
+    
+    // Check for import statements
+    if (trimmedLine.match(/^(import|from|require|using)\s/)) {
+      return 'import';
+    }
+    
+    // Check for environment variable patterns
+    if (line.includes('process.env') || line.includes('os.environ') || line.includes('getenv')) {
+      return 'env';
+    }
+    
+    // Config files
+    if (['.yml', '.yaml', '.json', '.toml', '.env'].some(e => filePath.endsWith(e))) {
+      return 'config';
+    }
+    
+    return 'code';
+  }
+
+  /**
    * Scan a single file for patterns
    */
   async scanFile(filePath: string): Promise<Detection[]> {
     const detections: Detection[] = [];
+    const ext = path.extname(filePath).toLowerCase();
+    
+    // Handle Jupyter notebooks separately
+    if (ext === '.ipynb' && this.options.scanNotebooks) {
+      return this.jupyterScanner.scanNotebook(filePath, this.scanPath);
+    }
+    
+    // Handle IaC files separately
+    if (isIaCFile(filePath) && this.options.scanIaC) {
+      return this.iacScanner.scanFile(filePath, this.scanPath);
+    }
     
     try {
       const content = await fs.promises.readFile(filePath, 'utf-8');
@@ -137,6 +282,21 @@ export class FileScanner {
             const lineRegex = new RegExp(regex.source, regex.flags);
             
             while ((match = lineRegex.exec(line)) !== null) {
+              // Detect context
+              const context = this.detectContext(line, match.index, filePath);
+              
+              // Skip comments if not included
+              if (context === 'comment' && !this.options.includeComments) {
+                if (!lineRegex.global) break;
+                continue;
+              }
+              
+              // Skip strings if not included
+              if (context === 'string' && !this.options.includeStrings) {
+                if (!lineRegex.global) break;
+                continue;
+              }
+              
               detections.push({
                 category: pattern.category,
                 name: pattern.name,
@@ -145,6 +305,7 @@ export class FileScanner {
                 column: match.index + 1,
                 snippet: this.getSnippet(lines, lineNum),
                 confidence: pattern.confidence,
+                context,
                 metadata: pattern.metadata,
               });
 
@@ -181,12 +342,27 @@ export class FileScanner {
   }
 
   /**
-   * Scan all files in the scan path
+   * Scan all files in the scan path, optionally using CodeQL
    */
   async scan(): Promise<ScanResults> {
     const files = await this.getFilesToScan();
-    const allDetections: Detection[] = [];
+    let allDetections: Detection[] = [];
 
+    // Try CodeQL first if enabled
+    if (this.options.useCodeQL) {
+      try {
+        const codeqlScanner = new CodeQLScanner({ scanPath: this.scanPath });
+        const codeqlDetections = await codeqlScanner.scan();
+        if (codeqlDetections.length > 0) {
+          console.log(`  CodeQL found ${codeqlDetections.length} detections`);
+          allDetections.push(...codeqlDetections);
+        }
+      } catch (error) {
+        console.warn(`CodeQL scan failed, falling back to regex: ${(error as Error).message}`);
+      }
+    }
+
+    // Regex-based scanning (runs alongside or as fallback)
     for (const file of files) {
       const fileDetections = await this.scanFile(file);
       allDetections.push(...fileDetections);
@@ -232,12 +408,16 @@ export class FileScanner {
       'platform': 0,
       'mcp-server': 0,
       'mcp-tool': 0,
+      'api-endpoint': 0,
+      'infrastructure': 0,
     };
 
     const filesWithDetections = new Set<string>();
 
     for (const detection of detections) {
-      detectionsByCategory[detection.category]++;
+      if (detectionsByCategory[detection.category] !== undefined) {
+        detectionsByCategory[detection.category]++;
+      }
       filesWithDetections.add(detection.file);
     }
 
@@ -253,6 +433,8 @@ export class FileScanner {
         'platform': 0,
         'mcp-server': 0,
         'mcp-tool': 0,
+        'api-endpoint': 0,
+        'infrastructure': 0,
       },
     };
   }

@@ -7,7 +7,7 @@ policies:
   # Use 'allowlist' to only allow specific models
   # Use 'denylist' to block specific models
   models:
-    mode: allowlist
+    mode: denylist
     items:
       # OpenAI models
       - gpt-4

@@ -32,6 +32,8 @@ describe('Policy Enforcement', () => {
         'platform': 0,
         'mcp-server': 0,
         'mcp-tool': 0,
+        'api-endpoint': 0,
+        'infrastructure': 0,
       },
       violationsByCategory: {
         'model': 0,
@@ -39,6 +41,8 @@ describe('Policy Enforcement', () => {
         'platform': 0,
         'mcp-server': 0,
         'mcp-tool': 0,
+        'api-endpoint': 0,
+        'infrastructure': 0,
       },
     },
   });

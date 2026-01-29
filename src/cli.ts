@@ -4,6 +4,9 @@
  * 
  * This CLI allows running the AIGraph scanner from anywhere,
  * not just as a GitHub Action.
+ * 
+ * Enhanced with CodeQL integration, Jupyter notebook support,
+ * Infrastructure as Code scanning, and configurable ignore patterns.
  */
 
 import { scan } from './core';
@@ -20,12 +23,24 @@ Arguments:
                  Default: . (current directory)
 
 Options:
-  -s, --spec <file>      Path to the spec file (default: .aigraph-spec.yml)
-  -f, --format <format>  Output format: json, markdown, text (default: text)
-  -q, --quiet            Suppress progress messages, only output results
-  --no-fail              Don't exit with error code on violations
-  -h, --help             Show this help message
-  -v, --version          Show version number
+  -s, --spec <file>        Path to the spec file (default: .aigraph-spec.yml)
+  -f, --format <format>    Output format: json, markdown, text (default: text)
+  -q, --quiet              Suppress progress messages, only output results
+  --no-fail                Don't exit with error code on violations
+  
+  Scanning Options:
+  --use-codeql             Use CodeQL for AST-based analysis (requires CodeQL CLI)
+  --no-notebooks           Skip scanning Jupyter notebooks (.ipynb files)
+  --no-iac                 Skip scanning Infrastructure as Code files
+  --include-comments       Include detections found in comments
+  --no-strings             Exclude detections found in string literals
+  
+  Ignore Options:
+  --ignore-dir <dir>       Additional directory to ignore (can be used multiple times)
+  --ignore-file <pattern>  Additional file pattern to ignore (can be used multiple times)
+  
+  -h, --help               Show this help message
+  -v, --version            Show version number
 
 Examples:
   aigraph-scanner                             # Scan current directory
@@ -34,7 +49,9 @@ Examples:
   aigraph-scanner openai/openai-python@main   # Scan specific branch
   aigraph-scanner -s custom-spec.yml ./src    # Use custom spec file
   aigraph-scanner -f json .                   # Output as JSON
-  aigraph-scanner -q -f json .                # Quiet mode with JSON output
+  aigraph-scanner --use-codeql .              # Use CodeQL for deeper analysis
+  aigraph-scanner --ignore-dir test .         # Ignore test directories
+  aigraph-scanner --no-notebooks .            # Skip Jupyter notebooks
 `);
 }
 
@@ -46,6 +63,13 @@ function parseArgs(args: string[]): {
   failOnViolation: boolean;
   showHelp: boolean;
   showVersion: boolean;
+  useCodeQL: boolean;
+  scanNotebooks: boolean;
+  scanIaC: boolean;
+  includeComments: boolean;
+  includeStrings: boolean;
+  ignoreDirs: string[];
+  ignoreFiles: string[];
 } {
   const result = {
     target: '.',
@@ -55,6 +79,13 @@ function parseArgs(args: string[]): {
     failOnViolation: true,
     showHelp: false,
     showVersion: false,
+    useCodeQL: false,
+    scanNotebooks: true,
+    scanIaC: true,
+    includeComments: false,
+    includeStrings: true,
+    ignoreDirs: [] as string[],
+    ignoreFiles: [] as string[],
   };
 
   const positionalArgs: string[] = [];
@@ -71,6 +102,30 @@ function parseArgs(args: string[]): {
       result.quiet = true;
     } else if (arg === '--no-fail') {
       result.failOnViolation = false;
+    } else if (arg === '--use-codeql') {
+      result.useCodeQL = true;
+    } else if (arg === '--no-notebooks') {
+      result.scanNotebooks = false;
+    } else if (arg === '--no-iac') {
+      result.scanIaC = false;
+    } else if (arg === '--include-comments') {
+      result.includeComments = true;
+    } else if (arg === '--no-strings') {
+      result.includeStrings = false;
+    } else if (arg === '--ignore-dir') {
+      i++;
+      if (i >= args.length) {
+        console.error(`Error: ${arg} requires a value`);
+        process.exit(1);
+      }
+      result.ignoreDirs.push(args[i]);
+    } else if (arg === '--ignore-file') {
+      i++;
+      if (i >= args.length) {
+        console.error(`Error: ${arg} requires a value`);
+        process.exit(1);
+      }
+      result.ignoreFiles.push(args[i]);
     } else if (arg === '-s' || arg === '--spec') {
       i++;
       if (i >= args.length) {

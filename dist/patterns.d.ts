@@ -26,6 +26,10 @@ export declare const MCP_SERVER_PATTERNS: DetectionPattern[];
  */
 export declare const MCP_TOOL_PATTERNS: DetectionPattern[];
 /**
+ * AI API Endpoint patterns - detects direct HTTP calls to AI providers
+ */
+export declare const API_ENDPOINT_PATTERNS: DetectionPattern[];
+/**
  * All patterns combined
  */
 export declare const ALL_PATTERNS: DetectionPattern[];

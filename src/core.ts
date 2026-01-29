@@ -3,13 +3,16 @@
  * 
  * This module provides the core scanning functionality that can be used
  * independently of the GitHub Action context. Use this for CLI or library usage.
+ * 
+ * Enhanced with CodeQL integration, Jupyter notebook support,
+ * Infrastructure as Code scanning, and configurable ignore patterns.
  */
 
-import { FileScanner } from './scanners';
+import { FileScanner, FileScannerOptions } from './scanners';
 import { PolicyEnforcer } from './policy';
 import { formatResults } from './formatter';
 import { parseGitHubRepo, cloneGitHubRepo, isGitHubRepoRef, CloneResult } from './github-repo';
-import { ScannerConfig, ScanResults } from './types';
+import { ScannerConfig, ScanResults, IgnoreConfig } from './types';
 
 /**
  * Options for running the scanner
@@ -25,6 +28,20 @@ export interface ScanOptions {
   failOnViolation?: boolean;
   /** Optional logging function */
   log?: (message: string) => void;
+  /** Whether to use CodeQL for AST-based analysis */
+  useCodeQL?: boolean;
+  /** Whether to scan Jupyter notebooks (default: true) */
+  scanNotebooks?: boolean;
+  /** Whether to scan IaC files (default: true) */
+  scanIaC?: boolean;
+  /** Whether to include detections from comments (default: false) */
+  includeComments?: boolean;
+  /** Whether to include detections from strings (default: true) */
+  includeStrings?: boolean;
+  /** Additional directories to ignore */
+  ignoreDirs?: string[];
+  /** Additional file patterns to ignore */
+  ignoreFiles?: string[];
 }
 
 /**
@@ -57,6 +74,12 @@ export interface ScanOutput {
  * // Scan a GitHub repository
  * const result = await scan({ target: 'owner/repo@main' });
  * console.log(result.results.violations);
+ * 
+ * // Use CodeQL for deeper analysis
+ * const result = await scan({ target: '.', useCodeQL: true });
+ * 
+ * // Ignore test directories
+ * const result = await scan({ target: '.', ignoreDirs: ['test', '__tests__'] });
  * ```
  */
 export async function scan(options: ScanOptions): Promise<ScanOutput> {
@@ -65,6 +88,13 @@ export async function scan(options: ScanOptions): Promise<ScanOutput> {
     specFile = '.aigraph-spec.yml',
     outputFormat = 'text',
     log = function noop() {},
+    useCodeQL = false,
+    scanNotebooks = true,
+    scanIaC = true,
+    includeComments = false,
+    includeStrings = true,
+    ignoreDirs = [],
+    ignoreFiles = [],
   } = options;
 
   let scanPath = target;
@@ -92,9 +122,36 @@ export async function scan(options: ScanOptions): Promise<ScanOutput> {
     const spec = await PolicyEnforcer.loadSpec(specFile);
     const enforcer = new PolicyEnforcer(spec);
 
+    // Build ignore config
+    const ignoreConfig: IgnoreConfig = {
+      directories: [...ignoreDirs, ...(spec.ignore?.directories || [])],
+      files: [...ignoreFiles, ...(spec.ignore?.files || [])],
+      patterns: spec.ignore?.patterns || [],
+    };
+
+    // Build scanner options
+    const scannerOptions: FileScannerOptions = {
+      useCodeQL,
+      scanNotebooks,
+      scanIaC,
+      includeComments,
+      includeStrings,
+      ignoreConfig,
+    };
+
     // Scan files
     log('🔎 Scanning files for AI components...');
-    const scanner = new FileScanner(scanPath);
+    if (useCodeQL) {
+      log('  Using CodeQL for AST-based analysis...');
+    }
+    if (scanNotebooks) {
+      log('  Including Jupyter notebooks...');
+    }
+    if (scanIaC) {
+      log('  Including Infrastructure as Code files...');
+    }
+    
+    const scanner = new FileScanner(scanPath, undefined, scannerOptions);
     const scanResults = await scanner.scan();
 
     log(`📊 Found ${scanResults.detections.length} detections in ${scanResults.summary.filesScanned} files`);
@@ -121,9 +178,12 @@ export async function scan(options: ScanOptions): Promise<ScanOutput> {
 }
 
 // Re-export commonly used types and classes for library usage
-export { FileScanner } from './scanners';
+export { FileScanner, FileScannerOptions } from './scanners';
+export { CodeQLScanner, runCodeQLScan } from './scanners';
+export { JupyterScanner, scanJupyterNotebook } from './scanners';
+export { IaCScanner, scanIaCFile, isIaCFile } from './scanners';
 export { PolicyEnforcer } from './policy';
 export { formatResults, formatAsJson, formatAsMarkdown, formatAsText } from './formatter';
 export { parseGitHubRepo, cloneGitHubRepo, isGitHubRepoRef } from './github-repo';
 export * from './types';
-export { ALL_PATTERNS, MODEL_PATTERNS, FRAMEWORK_PATTERNS, PLATFORM_PATTERNS, MCP_SERVER_PATTERNS, MCP_TOOL_PATTERNS } from './patterns';
+export { ALL_PATTERNS, MODEL_PATTERNS, FRAMEWORK_PATTERNS, PLATFORM_PATTERNS, MCP_SERVER_PATTERNS, MCP_TOOL_PATTERNS, API_ENDPOINT_PATTERNS } from './patterns';

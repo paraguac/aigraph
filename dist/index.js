@@ -36742,6 +36742,8 @@ function formatAsMarkdown(results) {
             'platform': 'AI Platforms',
             'mcp-server': 'MCP Servers',
             'mcp-tool': 'MCP Tools',
+            'api-endpoint': 'API Endpoints',
+            'infrastructure': 'Infrastructure',
         };
         for (const [category, label] of Object.entries(categoryLabels)) {
             const count = results.summary.detectionsByCategory[category];
@@ -36841,6 +36843,8 @@ function formatCategory(category) {
         'platform': 'AI Platform',
         'mcp-server': 'MCP Server',
         'mcp-tool': 'MCP Tool',
+        'api-endpoint': 'API Endpoint',
+        'infrastructure': 'Infrastructure',
     };
     return labels[category];
 }
@@ -36854,6 +36858,8 @@ function groupByCategory(detections) {
         'platform': [],
         'mcp-server': [],
         'mcp-tool': [],
+        'api-endpoint': [],
+        'infrastructure': [],
     };
     for (const detection of detections) {
         result[detection.category].push(detection);
@@ -37212,7 +37218,7 @@ run();
  * platforms, and MCP servers/tools in codebases.
  */
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.ALL_PATTERNS = exports.MCP_TOOL_PATTERNS = exports.MCP_SERVER_PATTERNS = exports.PLATFORM_PATTERNS = exports.FRAMEWORK_PATTERNS = exports.MODEL_PATTERNS = void 0;
+exports.ALL_PATTERNS = exports.API_ENDPOINT_PATTERNS = exports.MCP_TOOL_PATTERNS = exports.MCP_SERVER_PATTERNS = exports.PLATFORM_PATTERNS = exports.FRAMEWORK_PATTERNS = exports.MODEL_PATTERNS = void 0;
 /**
  * Open Source AI Models - Direct usage patterns
  */
@@ -37982,6 +37988,170 @@ exports.MCP_TOOL_PATTERNS = [
     },
 ];
 /**
+ * AI API Endpoint patterns - detects direct HTTP calls to AI providers
+ */
+exports.API_ENDPOINT_PATTERNS = [
+    // OpenAI API
+    {
+        category: 'api-endpoint',
+        name: 'openai-api',
+        patterns: [
+            /api\.openai\.com/gi,
+            /['"`]https?:\/\/api\.openai\.com/gi,
+        ],
+        confidence: 'high',
+        metadata: { provider: 'openai' }
+    },
+    // Anthropic API
+    {
+        category: 'api-endpoint',
+        name: 'anthropic-api',
+        patterns: [
+            /api\.anthropic\.com/gi,
+            /['"`]https?:\/\/api\.anthropic\.com/gi,
+        ],
+        confidence: 'high',
+        metadata: { provider: 'anthropic' }
+    },
+    // Google AI APIs
+    {
+        category: 'api-endpoint',
+        name: 'google-ai-api',
+        patterns: [
+            /generativelanguage\.googleapis\.com/gi,
+            /aiplatform\.googleapis\.com/gi,
+            /us-central1-aiplatform\.googleapis\.com/gi,
+        ],
+        confidence: 'high',
+        metadata: { provider: 'google' }
+    },
+    // Azure OpenAI
+    {
+        category: 'api-endpoint',
+        name: 'azure-openai-api',
+        patterns: [
+            /\.openai\.azure\.com/gi,
+            /\.cognitiveservices\.azure\.com/gi,
+        ],
+        confidence: 'high',
+        metadata: { provider: 'azure' }
+    },
+    // Hugging Face API
+    {
+        category: 'api-endpoint',
+        name: 'huggingface-api',
+        patterns: [
+            /api-inference\.huggingface\.co/gi,
+            /huggingface\.co\/api/gi,
+        ],
+        confidence: 'high',
+        metadata: { provider: 'huggingface' }
+    },
+    // Cohere API
+    {
+        category: 'api-endpoint',
+        name: 'cohere-api',
+        patterns: [
+            /api\.cohere\.ai/gi,
+            /api\.cohere\.com/gi,
+        ],
+        confidence: 'high',
+        metadata: { provider: 'cohere' }
+    },
+    // Replicate API
+    {
+        category: 'api-endpoint',
+        name: 'replicate-api',
+        patterns: [
+            /api\.replicate\.com/gi,
+        ],
+        confidence: 'high',
+        metadata: { provider: 'replicate' }
+    },
+    // Together AI API
+    {
+        category: 'api-endpoint',
+        name: 'together-api',
+        patterns: [
+            /api\.together\.xyz/gi,
+            /api\.together\.ai/gi,
+        ],
+        confidence: 'high',
+        metadata: { provider: 'together' }
+    },
+    // Groq API
+    {
+        category: 'api-endpoint',
+        name: 'groq-api',
+        patterns: [
+            /api\.groq\.com/gi,
+        ],
+        confidence: 'high',
+        metadata: { provider: 'groq' }
+    },
+    // Fireworks AI API
+    {
+        category: 'api-endpoint',
+        name: 'fireworks-api',
+        patterns: [
+            /api\.fireworks\.ai/gi,
+        ],
+        confidence: 'high',
+        metadata: { provider: 'fireworks' }
+    },
+    // Perplexity API
+    {
+        category: 'api-endpoint',
+        name: 'perplexity-api',
+        patterns: [
+            /api\.perplexity\.ai/gi,
+        ],
+        confidence: 'high',
+        metadata: { provider: 'perplexity' }
+    },
+    // OpenRouter API
+    {
+        category: 'api-endpoint',
+        name: 'openrouter-api',
+        patterns: [
+            /openrouter\.ai\/api/gi,
+        ],
+        confidence: 'high',
+        metadata: { provider: 'openrouter' }
+    },
+    // Mistral API
+    {
+        category: 'api-endpoint',
+        name: 'mistral-api',
+        patterns: [
+            /api\.mistral\.ai/gi,
+        ],
+        confidence: 'high',
+        metadata: { provider: 'mistral' }
+    },
+    // Local AI endpoints
+    {
+        category: 'api-endpoint',
+        name: 'ollama-local',
+        patterns: [
+            /localhost:11434/gi,
+            /127\.0\.0\.1:11434/gi,
+        ],
+        confidence: 'medium',
+        metadata: { provider: 'ollama', type: 'local' }
+    },
+    {
+        category: 'api-endpoint',
+        name: 'lmstudio-local',
+        patterns: [
+            /localhost:1234/gi,
+            /127\.0\.0\.1:1234/gi,
+        ],
+        confidence: 'medium',
+        metadata: { provider: 'lmstudio', type: 'local' }
+    },
+];
+/**
  * All patterns combined
  */
 exports.ALL_PATTERNS = [
@@ -37990,6 +38160,7 @@ exports.ALL_PATTERNS = [
     ...exports.PLATFORM_PATTERNS,
     ...exports.MCP_SERVER_PATTERNS,
     ...exports.MCP_TOOL_PATTERNS,
+    ...exports.API_ENDPOINT_PATTERNS,
 ];
 
 
@@ -38155,9 +38326,10 @@ class PolicyEnforcer {
             'platform': 'platforms',
             'mcp-server': 'mcpServers',
             'mcp-tool': 'mcpTools',
+            // Note: api-endpoint and infrastructure don't have policy rules yet
         };
         const policyKey = categoryMap[category];
-        return this.spec.policies[policyKey];
+        return policyKey ? this.spec.policies[policyKey] : undefined;
     }
     /**
      * Check if a detection matches a pattern
@@ -38211,10 +38383,20 @@ class PolicyEnforcer {
                 });
             }
         }
-        // Update summary
-        const violationsByCategory = { ...results.summary.violationsByCategory };
+        // Update summary with all categories
+        const violationsByCategory = {
+            'model': 0,
+            'framework': 0,
+            'platform': 0,
+            'mcp-server': 0,
+            'mcp-tool': 0,
+            'api-endpoint': 0,
+            'infrastructure': 0,
+        };
         for (const violation of violations) {
-            violationsByCategory[violation.detection.category]++;
+            if (violationsByCategory[violation.detection.category] !== undefined) {
+                violationsByCategory[violation.detection.category]++;
+            }
         }
         return {
             ...results,
@@ -38236,8 +38418,10 @@ class PolicyEnforcer {
             'platform': 'AI platform',
             'mcp-server': 'MCP server',
             'mcp-tool': 'MCP tool',
+            'api-endpoint': 'AI API endpoint',
+            'infrastructure': 'AI infrastructure resource',
         };
-        const categoryLabel = categoryLabels[detection.category];
+        const categoryLabel = categoryLabels[detection.category] || detection.category;
         if (rule === 'denied') {
             return `${categoryLabel} "${detection.name}" is explicitly denied by policy`;
         }
@@ -38251,6 +38435,401 @@ exports.PolicyEnforcer = PolicyEnforcer;
 
 /***/ }),
 
+/***/ 8156:
+/***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
+
+"use strict";
+
+/**
+ * AIGraph Scanner - CodeQL Integration Module
+ *
+ * This module provides integration with CodeQL for AST-based semantic analysis.
+ * It can run CodeQL queries and parse results into the AIGraph detection format.
+ */
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.CodeQLScanner = void 0;
+exports.runCodeQLScan = runCodeQLScan;
+const child_process_1 = __nccwpck_require__(5317);
+const fs = __importStar(__nccwpck_require__(9896));
+const path = __importStar(__nccwpck_require__(6928));
+const os = __importStar(__nccwpck_require__(857));
+/**
+ * CodeQL Scanner class
+ */
+class CodeQLScanner {
+    options;
+    tempDir;
+    databasePath;
+    constructor(options) {
+        this.options = {
+            threads: 0,
+            timeout: 1800,
+            ...options,
+        };
+        this.tempDir = '';
+        this.databasePath = '';
+    }
+    /**
+     * Check if CodeQL CLI is available
+     */
+    static async checkAvailability() {
+        return new Promise((resolve) => {
+            const process = (0, child_process_1.spawn)('codeql', ['version'], {
+                shell: true,
+                timeout: 10000,
+            });
+            let stdout = '';
+            let stderr = '';
+            process.stdout?.on('data', (data) => {
+                stdout += data.toString();
+            });
+            process.stderr?.on('data', (data) => {
+                stderr += data.toString();
+            });
+            process.on('close', (code) => {
+                if (code === 0) {
+                    const versionMatch = stdout.match(/CodeQL.*?(\d+\.\d+\.\d+)/i);
+                    resolve({
+                        available: true,
+                        version: versionMatch ? versionMatch[1] : 'unknown',
+                        path: 'codeql',
+                    });
+                }
+                else {
+                    resolve({
+                        available: false,
+                        error: stderr || 'CodeQL CLI not found',
+                    });
+                }
+            });
+            process.on('error', (err) => {
+                resolve({
+                    available: false,
+                    error: `CodeQL CLI not found: ${err.message}`,
+                });
+            });
+        });
+    }
+    /**
+     * Run CodeQL analysis and return detections
+     */
+    async scan() {
+        // Check CodeQL availability
+        const availability = await CodeQLScanner.checkAvailability();
+        if (!availability.available) {
+            console.warn(`CodeQL not available: ${availability.error}. Falling back to regex-based scanning.`);
+            return [];
+        }
+        try {
+            // Create temp directory for database
+            this.tempDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'aigraph-codeql-'));
+            this.databasePath = path.join(this.tempDir, 'db');
+            // Detect languages
+            const languages = this.options.languages || await this.detectLanguages();
+            if (languages.length === 0) {
+                console.warn('No supported languages detected for CodeQL analysis');
+                return [];
+            }
+            // Create CodeQL database
+            await this.createDatabase(languages);
+            // Run queries
+            const sarifResults = await this.runQueries();
+            // Parse results into detections
+            return this.parseResults(sarifResults);
+        }
+        finally {
+            // Cleanup temp directory
+            await this.cleanup();
+        }
+    }
+    /**
+     * Detect languages in the scan path
+     */
+    async detectLanguages() {
+        const languages = [];
+        const checkExtensions = async (dir) => {
+            try {
+                const entries = await fs.promises.readdir(dir, { withFileTypes: true });
+                for (const entry of entries) {
+                    if (entry.isDirectory()) {
+                        // Skip common non-source directories
+                        if (['node_modules', '.git', 'dist', 'build', '__pycache__', 'venv', '.venv'].includes(entry.name)) {
+                            continue;
+                        }
+                        await checkExtensions(path.join(dir, entry.name));
+                    }
+                    else {
+                        const ext = path.extname(entry.name).toLowerCase();
+                        if (['.py'].includes(ext) && !languages.includes('python')) {
+                            languages.push('python');
+                        }
+                        if (['.js', '.ts', '.jsx', '.tsx', '.mjs', '.cjs'].includes(ext) && !languages.includes('javascript')) {
+                            languages.push('javascript');
+                        }
+                    }
+                    // Early exit if we found both
+                    if (languages.length >= 2)
+                        return;
+                }
+            }
+            catch {
+                // Ignore permission errors
+            }
+        };
+        await checkExtensions(this.options.scanPath);
+        return languages;
+    }
+    /**
+     * Create CodeQL database for the scan path
+     */
+    async createDatabase(languages) {
+        const args = [
+            'database', 'create',
+            this.databasePath,
+            `--language=${languages.join(',')}`,
+            `--source-root=${this.options.scanPath}`,
+            '--overwrite',
+        ];
+        if (this.options.threads) {
+            args.push(`--threads=${this.options.threads}`);
+        }
+        if (this.options.ramLimit) {
+            args.push(`--ram=${this.options.ramLimit}`);
+        }
+        await this.runCodeQL(args, 'Creating CodeQL database');
+    }
+    /**
+     * Run CodeQL queries against the database
+     */
+    async runQueries() {
+        const queryPack = this.options.queryPack || this.getDefaultQueryPackPath();
+        const resultsPath = path.join(this.tempDir, 'results.sarif');
+        const args = [
+            'database', 'analyze',
+            this.databasePath,
+            queryPack,
+            '--format=sarifv2.1.0',
+            `--output=${resultsPath}`,
+        ];
+        if (this.options.threads) {
+            args.push(`--threads=${this.options.threads}`);
+        }
+        await this.runCodeQL(args, 'Running CodeQL queries');
+        // Read and parse SARIF results
+        const sarifContent = await fs.promises.readFile(resultsPath, 'utf-8');
+        return JSON.parse(sarifContent);
+    }
+    /**
+     * Get the path to the default AIGraph query pack
+     */
+    getDefaultQueryPackPath() {
+        // Check for query pack in various locations
+        const possiblePaths = [
+            path.join(__dirname, '../../codeql/aigraph-queries'),
+            path.join(__dirname, '../../../codeql/aigraph-queries'),
+            path.join(process.cwd(), 'codeql/aigraph-queries'),
+        ];
+        for (const p of possiblePaths) {
+            if (fs.existsSync(path.join(p, 'qlpack.yml'))) {
+                return p;
+            }
+        }
+        // Fall back to installed query pack
+        return 'aigraph/ai-detection-queries';
+    }
+    /**
+     * Run a CodeQL command
+     */
+    runCodeQL(args, description) {
+        return new Promise((resolve, reject) => {
+            console.log(`  ${description}...`);
+            const process = (0, child_process_1.spawn)('codeql', args, {
+                shell: true,
+                timeout: (this.options.timeout || 1800) * 1000,
+            });
+            let stderr = '';
+            process.stderr?.on('data', (data) => {
+                stderr += data.toString();
+            });
+            process.on('close', (code) => {
+                if (code === 0) {
+                    resolve();
+                }
+                else {
+                    reject(new Error(`CodeQL command failed: ${stderr}`));
+                }
+            });
+            process.on('error', (err) => {
+                reject(new Error(`Failed to run CodeQL: ${err.message}`));
+            });
+        });
+    }
+    /**
+     * Parse SARIF results into AIGraph detections
+     */
+    parseResults(sarif) {
+        const detections = [];
+        for (const run of sarif.runs) {
+            const rules = new Map(run.tool.driver.rules.map(r => [r.id, r]));
+            for (const result of run.results) {
+                const rule = rules.get(result.ruleId);
+                if (!rule)
+                    continue;
+                for (const location of result.locations) {
+                    const detection = this.createDetection(result, rule, location);
+                    if (detection) {
+                        detections.push(detection);
+                    }
+                }
+            }
+        }
+        return detections;
+    }
+    /**
+     * Create a detection from a SARIF result
+     */
+    createDetection(result, rule, location) {
+        const { category, name, context } = this.parseRuleId(result.ruleId, result.message.text);
+        const physLoc = location.physicalLocation;
+        const filePath = physLoc.artifactLocation.uri;
+        const region = physLoc.region;
+        // Determine confidence from rule precision
+        let confidence = 'medium';
+        if (rule.properties?.precision === 'high')
+            confidence = 'high';
+        else if (rule.properties?.precision === 'low')
+            confidence = 'low';
+        return {
+            category,
+            name,
+            file: filePath,
+            line: region.startLine,
+            column: region.startColumn,
+            snippet: region.snippet?.text || '',
+            confidence,
+            context,
+            metadata: {
+                ruleId: result.ruleId,
+                message: result.message.text,
+            },
+        };
+    }
+    /**
+     * Parse rule ID and message to determine category and name
+     */
+    parseRuleId(ruleId, message) {
+        // Default values
+        let category = 'framework';
+        let name = 'unknown';
+        let context = 'code';
+        // Parse category from rule ID
+        if (ruleId.includes('ai-sdk-import') || ruleId.includes('dynamic-ai-import')) {
+            category = 'framework';
+            context = 'import';
+        }
+        else if (ruleId.includes('ai-model-name')) {
+            category = 'model';
+            context = 'string';
+        }
+        else if (ruleId.includes('ai-api-endpoint')) {
+            category = 'api-endpoint';
+            context = 'code';
+        }
+        else if (ruleId.includes('ai-client-instantiation')) {
+            category = 'framework';
+            context = 'code';
+        }
+        else if (ruleId.includes('mcp')) {
+            category = 'mcp-server';
+            context = 'code';
+        }
+        else if (ruleId.includes('ai-env-variable')) {
+            category = 'platform';
+            context = 'env';
+        }
+        // Extract name from message
+        const patterns = [
+            /import detected: (\S+)/,
+            /model name detected: (\S+)/,
+            /client instantiation: (?:new )?(\S+)/,
+            /API (?:call|endpoint)[^:]*: (\S+)/,
+            /environment variable[^:]*: (\S+)/,
+            /module import detected: (\S+)/,
+            /package reference: (\S+)/,
+        ];
+        for (const pattern of patterns) {
+            const match = message.match(pattern);
+            if (match) {
+                name = match[1].replace(/[()]/g, '');
+                break;
+            }
+        }
+        // Clean up name
+        name = name.replace(/['"`]/g, '');
+        return { category, name, context };
+    }
+    /**
+     * Clean up temporary files
+     */
+    async cleanup() {
+        if (this.tempDir && fs.existsSync(this.tempDir)) {
+            try {
+                await fs.promises.rm(this.tempDir, { recursive: true, force: true });
+            }
+            catch {
+                // Ignore cleanup errors
+            }
+        }
+    }
+}
+exports.CodeQLScanner = CodeQLScanner;
+/**
+ * Convenience function to run CodeQL scan
+ */
+async function runCodeQLScan(scanPath, options) {
+    const scanner = new CodeQLScanner({
+        scanPath,
+        ...options,
+    });
+    return scanner.scan();
+}
+
+
+/***/ }),
+
 /***/ 7098:
 /***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
 
@@ -38260,6 +38839,8 @@ exports.PolicyEnforcer = PolicyEnforcer;
  * AIGraph Scanner - File Scanner Module
  *
  * This module handles scanning files for AI-related patterns.
+ * Enhanced with context awareness, CodeQL integration, Jupyter notebook support,
+ * and Infrastructure as Code scanning.
  */
 var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
     if (k2 === undefined) k2 = k;
@@ -38303,10 +38884,13 @@ const fs = __importStar(__nccwpck_require__(9896));
 const path = __importStar(__nccwpck_require__(6928));
 const fast_glob_1 = __importDefault(__nccwpck_require__(5648));
 const patterns_1 = __nccwpck_require__(6248);
+const codeql_scanner_1 = __nccwpck_require__(8156);
+const jupyter_scanner_1 = __nccwpck_require__(45);
+const iac_scanner_1 = __nccwpck_require__(8947);
 /**
  * Files and directories to ignore during scanning
  */
-const IGNORE_PATTERNS = [
+const DEFAULT_IGNORE_PATTERNS = [
     '**/node_modules/**',
     '**/.git/**',
     '**/dist/**',
@@ -38328,6 +38912,12 @@ const IGNORE_PATTERNS = [
     '**/.aigraph-spec.yml',
     '**/.aigraph-spec.yaml',
     '**/.aigraph-spec.json',
+    // Exclude markdown files to reduce false positives
+    '**/*.md',
+    '**/README*',
+    '**/CHANGELOG*',
+    '**/LICENSE*',
+    '**/CONTRIBUTING*',
 ];
 /**
  * File extensions to scan
@@ -38353,8 +38943,6 @@ const SCAN_EXTENSIONS = [
     '*.yaml',
     '*.json',
     '*.toml',
-    '*.md',
-    '*.txt',
     '*.env*',
     '*.config.*',
     '*Dockerfile*',
@@ -38365,6 +38953,17 @@ const SCAN_EXTENSIONS = [
     'go.mod',
     'Gemfile',
     'composer.json',
+    // Jupyter notebooks
+    '*.ipynb',
+    // Infrastructure as Code
+    '*.tf',
+    '*.tfvars',
+    'docker-compose*.yml',
+    'docker-compose*.yaml',
+    'compose.yml',
+    'compose.yaml',
+    'chart.yaml',
+    'values.yaml',
 ];
 /**
  * Scanner class for detecting AI patterns in files
@@ -38372,18 +38971,57 @@ const SCAN_EXTENSIONS = [
 class FileScanner {
     patterns;
     scanPath;
-    constructor(scanPath, patterns = patterns_1.ALL_PATTERNS) {
+    options;
+    jupyterScanner;
+    iacScanner;
+    constructor(scanPath, patterns = patterns_1.ALL_PATTERNS, options = {}) {
         this.scanPath = path.resolve(scanPath);
         this.patterns = patterns;
+        this.options = {
+            scanNotebooks: true,
+            scanIaC: true,
+            includeComments: false,
+            includeStrings: true,
+            ...options,
+        };
+        this.jupyterScanner = new jupyter_scanner_1.JupyterScanner({ patterns });
+        this.iacScanner = new iac_scanner_1.IaCScanner();
+    }
+    /**
+     * Build ignore patterns from config
+     */
+    buildIgnorePatterns() {
+        const patterns = [...DEFAULT_IGNORE_PATTERNS];
+        if (this.options.ignoreConfig) {
+            const config = this.options.ignoreConfig;
+            // Add directory ignores
+            if (config.directories) {
+                for (const dir of config.directories) {
+                    patterns.push(`**/${dir}/**`);
+                }
+            }
+            // Add file pattern ignores
+            if (config.files) {
+                for (const file of config.files) {
+                    patterns.push(`**/${file}`);
+                }
+            }
+            // Add glob pattern ignores
+            if (config.patterns) {
+                patterns.push(...config.patterns);
+            }
+        }
+        return patterns;
     }
     /**
      * Get list of files to scan
      */
     async getFilesToScan() {
         const patterns = SCAN_EXTENSIONS.map(ext => `**/${ext}`);
+        const ignorePatterns = this.buildIgnorePatterns();
         const files = await (0, fast_glob_1.default)(patterns, {
             cwd: this.scanPath,
-            ignore: IGNORE_PATTERNS,
+            ignore: ignorePatterns,
             absolute: true,
             dot: true,
             onlyFiles: true,
@@ -38391,10 +39029,60 @@ class FileScanner {
         return files;
     }
     /**
+     * Detect the context of a match (code, comment, string, etc.)
+     */
+    detectContext(line, matchIndex, filePath) {
+        const ext = path.extname(filePath).toLowerCase();
+        const trimmedLine = line.trim();
+        // Check for comment patterns based on language
+        const singleLineComments = ['#', '//', '--', ';', '%'];
+        const multiLineCommentStarts = ['/*', '"""', "'''", '<!--'];
+        // Python/Ruby/Shell comments
+        if (['.py', '.rb', '.sh', '.bash', '.yml', '.yaml'].includes(ext)) {
+            if (trimmedLine.startsWith('#'))
+                return 'comment';
+        }
+        // JavaScript/TypeScript/Java/C# comments
+        if (['.js', '.ts', '.jsx', '.tsx', '.java', '.cs', '.go', '.rs', '.swift', '.kt'].includes(ext)) {
+            if (trimmedLine.startsWith('//'))
+                return 'comment';
+            if (trimmedLine.startsWith('/*') || trimmedLine.startsWith('*'))
+                return 'comment';
+        }
+        // Check if match is inside a string before the comment
+        const beforeMatch = line.substring(0, matchIndex);
+        const quoteCount = (beforeMatch.match(/['"]/g) || []).length;
+        if (quoteCount % 2 === 1) {
+            return 'string';
+        }
+        // Check for import statements
+        if (trimmedLine.match(/^(import|from|require|using)\s/)) {
+            return 'import';
+        }
+        // Check for environment variable patterns
+        if (line.includes('process.env') || line.includes('os.environ') || line.includes('getenv')) {
+            return 'env';
+        }
+        // Config files
+        if (['.yml', '.yaml', '.json', '.toml', '.env'].some(e => filePath.endsWith(e))) {
+            return 'config';
+        }
+        return 'code';
+    }
+    /**
      * Scan a single file for patterns
      */
     async scanFile(filePath) {
         const detections = [];
+        const ext = path.extname(filePath).toLowerCase();
+        // Handle Jupyter notebooks separately
+        if (ext === '.ipynb' && this.options.scanNotebooks) {
+            return this.jupyterScanner.scanNotebook(filePath, this.scanPath);
+        }
+        // Handle IaC files separately
+        if ((0, iac_scanner_1.isIaCFile)(filePath) && this.options.scanIaC) {
+            return this.iacScanner.scanFile(filePath, this.scanPath);
+        }
         try {
             const content = await fs.promises.readFile(filePath, 'utf-8');
             const lines = content.split('\n');
@@ -38418,6 +39106,20 @@ class FileScanner {
                         // Create a new regex for each line to avoid lastIndex issues
                         const lineRegex = new RegExp(regex.source, regex.flags);
                         while ((match = lineRegex.exec(line)) !== null) {
+                            // Detect context
+                            const context = this.detectContext(line, match.index, filePath);
+                            // Skip comments if not included
+                            if (context === 'comment' && !this.options.includeComments) {
+                                if (!lineRegex.global)
+                                    break;
+                                continue;
+                            }
+                            // Skip strings if not included
+                            if (context === 'string' && !this.options.includeStrings) {
+                                if (!lineRegex.global)
+                                    break;
+                                continue;
+                            }
                             detections.push({
                                 category: pattern.category,
                                 name: pattern.name,
@@ -38426,6 +39128,7 @@ class FileScanner {
                                 column: match.index + 1,
                                 snippet: this.getSnippet(lines, lineNum),
                                 confidence: pattern.confidence,
+                                context,
                                 metadata: pattern.metadata,
                             });
                             // Break if not global regex to avoid infinite loop
@@ -38459,11 +39162,26 @@ class FileScanner {
             .join('\n');
     }
     /**
-     * Scan all files in the scan path
+     * Scan all files in the scan path, optionally using CodeQL
      */
     async scan() {
         const files = await this.getFilesToScan();
-        const allDetections = [];
+        let allDetections = [];
+        // Try CodeQL first if enabled
+        if (this.options.useCodeQL) {
+            try {
+                const codeqlScanner = new codeql_scanner_1.CodeQLScanner({ scanPath: this.scanPath });
+                const codeqlDetections = await codeqlScanner.scan();
+                if (codeqlDetections.length > 0) {
+                    console.log(`  CodeQL found ${codeqlDetections.length} detections`);
+                    allDetections.push(...codeqlDetections);
+                }
+            }
+            catch (error) {
+                console.warn(`CodeQL scan failed, falling back to regex: ${error.message}`);
+            }
+        }
+        // Regex-based scanning (runs alongside or as fallback)
         for (const file of files) {
             const fileDetections = await this.scanFile(file);
             allDetections.push(...fileDetections);
@@ -38502,10 +39220,14 @@ class FileScanner {
             'platform': 0,
             'mcp-server': 0,
             'mcp-tool': 0,
+            'api-endpoint': 0,
+            'infrastructure': 0,
         };
         const filesWithDetections = new Set();
         for (const detection of detections) {
-            detectionsByCategory[detection.category]++;
+            if (detectionsByCategory[detection.category] !== undefined) {
+                detectionsByCategory[detection.category]++;
+            }
             filesWithDetections.add(detection.file);
         }
         return {
@@ -38520,11 +39242,485 @@ class FileScanner {
                 'platform': 0,
                 'mcp-server': 0,
                 'mcp-tool': 0,
+                'api-endpoint': 0,
+                'infrastructure': 0,
             },
         };
     }
 }
 exports.FileScanner = FileScanner;
+
+
+/***/ }),
+
+/***/ 8947:
+/***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
+
+"use strict";
+
+/**
+ * AIGraph Scanner - Infrastructure as Code Scanner
+ *
+ * This module handles scanning IaC files (Terraform, Helm, CloudFormation, etc.)
+ * for AI model deployments and configurations.
+ */
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.IaCScanner = void 0;
+exports.isIaCFile = isIaCFile;
+exports.scanIaCFile = scanIaCFile;
+const fs = __importStar(__nccwpck_require__(9896));
+const path = __importStar(__nccwpck_require__(6928));
+const yaml = __importStar(__nccwpck_require__(4281));
+/**
+ * AI-related resource patterns in IaC
+ */
+const IAC_AI_PATTERNS = {
+    // AWS resources
+    awsBedrock: [
+        /aws_bedrockagent/i,
+        /aws_bedrock/i,
+        /bedrock-agent/i,
+        /bedrock-runtime/i,
+    ],
+    awsSagemaker: [
+        /aws_sagemaker/i,
+        /sagemaker/i,
+    ],
+    // Azure resources
+    azureOpenai: [
+        /azurerm_cognitive_account.*openai/i,
+        /azure-openai/i,
+        /cognitive-services.*openai/i,
+        /Microsoft\.CognitiveServices.*OpenAI/i,
+    ],
+    azureMl: [
+        /azurerm_machine_learning/i,
+        /azure-ml/i,
+        /Microsoft\.MachineLearningServices/i,
+    ],
+    // GCP resources
+    gcpVertexAi: [
+        /google_vertex_ai/i,
+        /vertex-ai/i,
+        /aiplatform/i,
+    ],
+    gcpAi: [
+        /google_ml_engine/i,
+        /google_ai_platform/i,
+    ],
+    // Container images
+    aiImages: [
+        /openai/i,
+        /anthropic/i,
+        /huggingface/i,
+        /ollama/i,
+        /vllm/i,
+        /text-generation-inference/i,
+        /triton/i,
+        /tensorflow\/serving/i,
+        /pytorch\/serve/i,
+        /nvidia\/cuda/i,
+    ],
+    // Environment variables in containers
+    aiEnvVars: [
+        /OPENAI_API_KEY/i,
+        /ANTHROPIC_API_KEY/i,
+        /HUGGINGFACE_TOKEN/i,
+        /HF_TOKEN/i,
+        /AZURE_OPENAI/i,
+        /GOOGLE_API_KEY/i,
+        /COHERE_API_KEY/i,
+        /REPLICATE_API/i,
+        /GROQ_API_KEY/i,
+        /TOGETHER_API_KEY/i,
+    ],
+    // Model references in configs
+    modelRefs: [
+        /gpt-4/i,
+        /gpt-3\.5/i,
+        /claude-3/i,
+        /claude-2/i,
+        /gemini/i,
+        /llama-?[23]/i,
+        /mistral/i,
+        /mixtral/i,
+    ],
+};
+/**
+ * IaC Scanner class
+ */
+class IaCScanner {
+    /**
+     * Detect the type of IaC file
+     */
+    static detectFileType(filePath) {
+        const basename = path.basename(filePath).toLowerCase();
+        const ext = path.extname(filePath).toLowerCase();
+        if (ext === '.tf' || ext === '.tfvars') {
+            return 'terraform';
+        }
+        if (basename === 'chart.yaml' || basename === 'values.yaml' || filePath.includes('/templates/')) {
+            return 'helm';
+        }
+        if (basename === 'docker-compose.yml' || basename === 'docker-compose.yaml' || basename === 'compose.yml') {
+            return 'docker-compose';
+        }
+        if (ext === '.yaml' || ext === '.yml') {
+            // Check content for CloudFormation or Kubernetes
+            return 'unknown'; // Will be determined by content
+        }
+        return 'unknown';
+    }
+    /**
+     * Scan an IaC file for AI-related resources
+     */
+    async scanFile(filePath, basePath) {
+        const fileType = IaCScanner.detectFileType(filePath);
+        const relativePath = path.relative(basePath, filePath);
+        try {
+            const content = await fs.promises.readFile(filePath, 'utf-8');
+            switch (fileType) {
+                case 'terraform':
+                    return this.scanTerraform(content, relativePath);
+                case 'helm':
+                case 'docker-compose':
+                    return this.scanYaml(content, relativePath, fileType);
+                case 'kubernetes':
+                case 'cloudformation':
+                    return this.scanYaml(content, relativePath, fileType);
+                default:
+                    // Try to detect from content
+                    if (content.includes('AWSTemplateFormatVersion') || content.includes('Resources:')) {
+                        return this.scanYaml(content, relativePath, 'cloudformation');
+                    }
+                    if (content.includes('apiVersion:') && content.includes('kind:')) {
+                        return this.scanYaml(content, relativePath, 'kubernetes');
+                    }
+                    return this.scanGenericIaC(content, relativePath);
+            }
+        }
+        catch (error) {
+            console.warn(`Failed to scan IaC file ${filePath}: ${error.message}`);
+            return [];
+        }
+    }
+    /**
+     * Scan Terraform files
+     */
+    scanTerraform(content, filePath) {
+        const detections = [];
+        const lines = content.split('\n');
+        for (let lineNum = 0; lineNum < lines.length; lineNum++) {
+            const line = lines[lineNum];
+            // Check for AI-related resources
+            for (const [category, patterns] of Object.entries(IAC_AI_PATTERNS)) {
+                for (const pattern of patterns) {
+                    if (pattern.test(line)) {
+                        const detection = this.createIaCDetection(category, line, filePath, lineNum + 1, lines, 'terraform');
+                        if (detection) {
+                            detections.push(detection);
+                        }
+                    }
+                }
+            }
+        }
+        return detections;
+    }
+    /**
+     * Scan YAML-based IaC files (Helm, K8s, CloudFormation, Docker Compose)
+     */
+    scanYaml(content, filePath, fileType) {
+        const detections = [];
+        const lines = content.split('\n');
+        // Parse YAML to understand structure
+        let parsed;
+        try {
+            parsed = yaml.load(content);
+        }
+        catch {
+            // If YAML parsing fails, fall back to line-by-line scanning
+            return this.scanGenericIaC(content, filePath);
+        }
+        // Scan line by line for patterns
+        for (let lineNum = 0; lineNum < lines.length; lineNum++) {
+            const line = lines[lineNum];
+            for (const [category, patterns] of Object.entries(IAC_AI_PATTERNS)) {
+                for (const pattern of patterns) {
+                    if (pattern.test(line)) {
+                        const detection = this.createIaCDetection(category, line, filePath, lineNum + 1, lines, fileType);
+                        if (detection) {
+                            detections.push(detection);
+                        }
+                    }
+                }
+            }
+        }
+        // Deep scan parsed YAML for AI configurations
+        if (parsed && typeof parsed === 'object') {
+            this.scanYamlObject(parsed, filePath, lines, detections);
+        }
+        return detections;
+    }
+    /**
+     * Recursively scan a YAML object for AI patterns
+     */
+    scanYamlObject(obj, filePath, lines, detections, path = []) {
+        if (!obj || typeof obj !== 'object')
+            return;
+        const record = obj;
+        for (const [key, value] of Object.entries(record)) {
+            const currentPath = [...path, key];
+            // Check for AI-related keys
+            const aiKeys = ['model', 'model_name', 'modelName', 'engine', 'deployment', 'image'];
+            if (aiKeys.includes(key.toLowerCase()) && typeof value === 'string') {
+                // Check if value matches AI model patterns
+                for (const pattern of IAC_AI_PATTERNS.modelRefs) {
+                    if (pattern.test(value)) {
+                        // Find line number in original content
+                        const lineNum = this.findLineNumber(lines, key, value);
+                        detections.push({
+                            category: 'infrastructure',
+                            name: value,
+                            file: filePath,
+                            line: lineNum,
+                            snippet: this.getSnippet(lines, lineNum - 1),
+                            confidence: 'high',
+                            context: 'config',
+                            metadata: {
+                                provider: this.inferProvider(value),
+                                path: currentPath.join('.'),
+                                type: 'model-reference',
+                            },
+                        });
+                        break;
+                    }
+                }
+            }
+            // Check for AI images
+            if ((key === 'image' || key === 'repository') && typeof value === 'string') {
+                for (const pattern of IAC_AI_PATTERNS.aiImages) {
+                    if (pattern.test(value)) {
+                        const lineNum = this.findLineNumber(lines, key, value);
+                        detections.push({
+                            category: 'infrastructure',
+                            name: value,
+                            file: filePath,
+                            line: lineNum,
+                            snippet: this.getSnippet(lines, lineNum - 1),
+                            confidence: 'high',
+                            context: 'config',
+                            metadata: {
+                                provider: this.inferProvider(value),
+                                path: currentPath.join('.'),
+                                type: 'container-image',
+                            },
+                        });
+                        break;
+                    }
+                }
+            }
+            // Recurse into nested objects
+            if (typeof value === 'object' && value !== null) {
+                if (Array.isArray(value)) {
+                    value.forEach((item, idx) => {
+                        this.scanYamlObject(item, filePath, lines, detections, [...currentPath, String(idx)]);
+                    });
+                }
+                else {
+                    this.scanYamlObject(value, filePath, lines, detections, currentPath);
+                }
+            }
+        }
+    }
+    /**
+     * Generic line-by-line IaC scanning
+     */
+    scanGenericIaC(content, filePath) {
+        const detections = [];
+        const lines = content.split('\n');
+        for (let lineNum = 0; lineNum < lines.length; lineNum++) {
+            const line = lines[lineNum];
+            for (const [category, patterns] of Object.entries(IAC_AI_PATTERNS)) {
+                for (const pattern of patterns) {
+                    if (pattern.test(line)) {
+                        const detection = this.createIaCDetection(category, line, filePath, lineNum + 1, lines, 'unknown');
+                        if (detection) {
+                            detections.push(detection);
+                        }
+                    }
+                }
+            }
+        }
+        return detections;
+    }
+    /**
+     * Create an IaC detection
+     */
+    createIaCDetection(patternCategory, line, filePath, lineNum, lines, fileType) {
+        // Extract the matched value from the line
+        const match = line.match(/["']([^"']+)["']/) || line.match(/=\s*(\S+)/) || [null, line.trim()];
+        const value = match[1] || line.trim();
+        // Map pattern category to detection category
+        const categoryMap = {
+            awsBedrock: 'infrastructure',
+            awsSagemaker: 'infrastructure',
+            azureOpenai: 'infrastructure',
+            azureMl: 'infrastructure',
+            gcpVertexAi: 'infrastructure',
+            gcpAi: 'infrastructure',
+            aiImages: 'infrastructure',
+            aiEnvVars: 'platform',
+            modelRefs: 'model',
+        };
+        const category = categoryMap[patternCategory] || 'infrastructure';
+        const provider = this.inferProviderFromCategory(patternCategory);
+        return {
+            category,
+            name: value.substring(0, 100), // Truncate long values
+            file: filePath,
+            line: lineNum,
+            snippet: this.getSnippet(lines, lineNum - 1),
+            confidence: 'high',
+            context: 'config',
+            metadata: {
+                provider,
+                iacType: fileType,
+                patternType: patternCategory,
+            },
+        };
+    }
+    /**
+     * Find line number for a key-value pair
+     */
+    findLineNumber(lines, key, value) {
+        for (let i = 0; i < lines.length; i++) {
+            if (lines[i].includes(key) && lines[i].includes(value)) {
+                return i + 1;
+            }
+        }
+        return 1;
+    }
+    /**
+     * Get snippet around a line
+     */
+    getSnippet(lines, lineNum, context = 1) {
+        const start = Math.max(0, lineNum - context);
+        const end = Math.min(lines.length - 1, lineNum + context);
+        return lines.slice(start, end + 1)
+            .map((line, idx) => {
+            const actualLine = start + idx + 1;
+            const prefix = actualLine === lineNum + 1 ? '>' : ' ';
+            return `${prefix} ${actualLine}: ${line}`;
+        })
+            .join('\n');
+    }
+    /**
+     * Infer provider from value
+     */
+    inferProvider(value) {
+        const v = value.toLowerCase();
+        if (v.includes('openai') || v.includes('gpt'))
+            return 'openai';
+        if (v.includes('anthropic') || v.includes('claude'))
+            return 'anthropic';
+        if (v.includes('google') || v.includes('gemini') || v.includes('palm'))
+            return 'google';
+        if (v.includes('huggingface') || v.includes('hf'))
+            return 'huggingface';
+        if (v.includes('llama') || v.includes('meta'))
+            return 'meta';
+        if (v.includes('mistral') || v.includes('mixtral'))
+            return 'mistral';
+        if (v.includes('azure'))
+            return 'azure';
+        if (v.includes('bedrock') || v.includes('aws'))
+            return 'aws';
+        if (v.includes('vertex') || v.includes('gcp'))
+            return 'gcp';
+        if (v.includes('ollama'))
+            return 'ollama';
+        if (v.includes('nvidia') || v.includes('triton'))
+            return 'nvidia';
+        return 'unknown';
+    }
+    /**
+     * Infer provider from pattern category
+     */
+    inferProviderFromCategory(category) {
+        if (category.startsWith('aws'))
+            return 'aws';
+        if (category.startsWith('azure'))
+            return 'azure';
+        if (category.startsWith('gcp'))
+            return 'gcp';
+        return 'unknown';
+    }
+}
+exports.IaCScanner = IaCScanner;
+/**
+ * Check if a file is an IaC file
+ */
+function isIaCFile(filePath) {
+    const basename = path.basename(filePath).toLowerCase();
+    const ext = path.extname(filePath).toLowerCase();
+    // Terraform
+    if (ext === '.tf' || ext === '.tfvars')
+        return true;
+    // Helm
+    if (basename === 'chart.yaml' || basename === 'values.yaml')
+        return true;
+    // Docker Compose
+    if (basename.startsWith('docker-compose') || basename === 'compose.yml' || basename === 'compose.yaml')
+        return true;
+    // Dockerfile
+    if (basename === 'dockerfile' || basename.startsWith('dockerfile.'))
+        return true;
+    // Check for common IaC directories
+    if (filePath.includes('/terraform/') || filePath.includes('/helm/') || filePath.includes('/k8s/')) {
+        return ext === '.yaml' || ext === '.yml' || ext === '.tf';
+    }
+    return false;
+}
+/**
+ * Convenience function to scan an IaC file
+ */
+async function scanIaCFile(filePath, basePath) {
+    const scanner = new IaCScanner();
+    return scanner.scanFile(filePath, basePath);
+}
 
 
 /***/ }),
@@ -38538,9 +39734,236 @@ exports.FileScanner = FileScanner;
  * AIGraph Scanner - Scanners Module Index
  */
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.FileScanner = void 0;
+exports.scanIaCFile = exports.isIaCFile = exports.IaCScanner = exports.scanJupyterNotebook = exports.JupyterScanner = exports.runCodeQLScan = exports.CodeQLScanner = exports.FileScanner = void 0;
 var file_scanner_1 = __nccwpck_require__(7098);
 Object.defineProperty(exports, "FileScanner", ({ enumerable: true, get: function () { return file_scanner_1.FileScanner; } }));
+var codeql_scanner_1 = __nccwpck_require__(8156);
+Object.defineProperty(exports, "CodeQLScanner", ({ enumerable: true, get: function () { return codeql_scanner_1.CodeQLScanner; } }));
+Object.defineProperty(exports, "runCodeQLScan", ({ enumerable: true, get: function () { return codeql_scanner_1.runCodeQLScan; } }));
+var jupyter_scanner_1 = __nccwpck_require__(45);
+Object.defineProperty(exports, "JupyterScanner", ({ enumerable: true, get: function () { return jupyter_scanner_1.JupyterScanner; } }));
+Object.defineProperty(exports, "scanJupyterNotebook", ({ enumerable: true, get: function () { return jupyter_scanner_1.scanJupyterNotebook; } }));
+var iac_scanner_1 = __nccwpck_require__(8947);
+Object.defineProperty(exports, "IaCScanner", ({ enumerable: true, get: function () { return iac_scanner_1.IaCScanner; } }));
+Object.defineProperty(exports, "isIaCFile", ({ enumerable: true, get: function () { return iac_scanner_1.isIaCFile; } }));
+Object.defineProperty(exports, "scanIaCFile", ({ enumerable: true, get: function () { return iac_scanner_1.scanIaCFile; } }));
+
+
+/***/ }),
+
+/***/ 45:
+/***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
+
+"use strict";
+
+/**
+ * AIGraph Scanner - Jupyter Notebook Scanner
+ *
+ * This module handles scanning Jupyter notebook (.ipynb) files
+ * by extracting code cells and scanning them for AI patterns.
+ */
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.JupyterScanner = void 0;
+exports.scanJupyterNotebook = scanJupyterNotebook;
+const fs = __importStar(__nccwpck_require__(9896));
+const path = __importStar(__nccwpck_require__(6928));
+/**
+ * Jupyter Notebook Scanner class
+ */
+class JupyterScanner {
+    patterns;
+    includeMarkdown;
+    constructor(options) {
+        this.patterns = options.patterns;
+        this.includeMarkdown = options.includeMarkdown || false;
+    }
+    /**
+     * Check if a file is a Jupyter notebook
+     */
+    static isNotebook(filePath) {
+        return path.extname(filePath).toLowerCase() === '.ipynb';
+    }
+    /**
+     * Parse a Jupyter notebook file
+     */
+    async parseNotebook(filePath) {
+        try {
+            const content = await fs.promises.readFile(filePath, 'utf-8');
+            const notebook = JSON.parse(content);
+            // Validate notebook structure
+            if (!notebook.cells || !Array.isArray(notebook.cells)) {
+                console.warn(`Invalid notebook structure: ${filePath}`);
+                return null;
+            }
+            return {
+                cells: notebook.cells.map((cell) => ({
+                    cell_type: cell.cell_type,
+                    source: Array.isArray(cell.source) ? cell.source : [cell.source],
+                    metadata: cell.metadata,
+                })),
+                metadata: notebook.metadata || {},
+            };
+        }
+        catch (error) {
+            console.warn(`Failed to parse notebook ${filePath}: ${error.message}`);
+            return null;
+        }
+    }
+    /**
+     * Extract code from notebook cells
+     */
+    extractCode(notebook) {
+        const codeBlocks = [];
+        let currentLine = 1;
+        for (const cell of notebook.cells) {
+            if (cell.cell_type === 'code' || (this.includeMarkdown && cell.cell_type === 'markdown')) {
+                const code = cell.source.join('');
+                codeBlocks.push({
+                    code,
+                    lineOffset: currentLine,
+                });
+            }
+            // Track line numbers across cells
+            currentLine += cell.source.length;
+        }
+        return codeBlocks;
+    }
+    /**
+     * Scan a notebook file for patterns
+     */
+    async scanNotebook(filePath, basePath) {
+        const notebook = await this.parseNotebook(filePath);
+        if (!notebook) {
+            return [];
+        }
+        const detections = [];
+        const relativePath = path.relative(basePath, filePath);
+        const codeBlocks = this.extractCode(notebook);
+        let cellIndex = 0;
+        for (const cell of notebook.cells) {
+            if (cell.cell_type !== 'code' && !(this.includeMarkdown && cell.cell_type === 'markdown')) {
+                cellIndex++;
+                continue;
+            }
+            const code = cell.source.join('');
+            const lines = code.split('\n');
+            const codeBlock = codeBlocks.find(b => b.code === code);
+            const lineOffset = codeBlock?.lineOffset || 1;
+            for (const pattern of this.patterns) {
+                // Check file pattern filter
+                if (pattern.filePatterns && pattern.filePatterns.length > 0) {
+                    const matchesFilePattern = pattern.filePatterns.some(fp => fp === '*.ipynb' || fp === '*.py' || filePath.match(new RegExp(fp.replace('*', '.*'))));
+                    if (!matchesFilePattern)
+                        continue;
+                }
+                for (const regex of pattern.patterns) {
+                    for (let lineNum = 0; lineNum < lines.length; lineNum++) {
+                        const line = lines[lineNum];
+                        const lineRegex = new RegExp(regex.source, regex.flags);
+                        let match;
+                        while ((match = lineRegex.exec(line)) !== null) {
+                            detections.push({
+                                category: pattern.category,
+                                name: pattern.name,
+                                file: `${relativePath}[cell ${cellIndex + 1}]`,
+                                line: lineOffset + lineNum,
+                                column: match.index + 1,
+                                snippet: this.getSnippet(lines, lineNum),
+                                confidence: pattern.confidence,
+                                context: 'code',
+                                metadata: {
+                                    ...pattern.metadata,
+                                    cellType: cell.cell_type,
+                                    cellIndex: String(cellIndex + 1),
+                                },
+                            });
+                            if (!lineRegex.global)
+                                break;
+                        }
+                    }
+                }
+            }
+            cellIndex++;
+        }
+        return detections;
+    }
+    /**
+     * Get a code snippet around the matched line
+     */
+    getSnippet(lines, lineNum, context = 1) {
+        const start = Math.max(0, lineNum - context);
+        const end = Math.min(lines.length - 1, lineNum + context);
+        return lines.slice(start, end + 1)
+            .map((line, idx) => {
+            const actualLine = start + idx + 1;
+            const prefix = actualLine === lineNum + 1 ? '>' : ' ';
+            return `${prefix} ${actualLine}: ${line}`;
+        })
+            .join('\n');
+    }
+    /**
+     * Detect the primary language of a notebook
+     */
+    static detectNotebookLanguage(notebook) {
+        // Check metadata for language info
+        const metadata = notebook.metadata;
+        if (metadata.language_info) {
+            const langInfo = metadata.language_info;
+            if (langInfo.name) {
+                return langInfo.name;
+            }
+        }
+        if (metadata.kernelspec) {
+            const kernelspec = metadata.kernelspec;
+            if (kernelspec.language) {
+                return kernelspec.language;
+            }
+        }
+        // Default to Python (most common for Jupyter)
+        return 'python';
+    }
+}
+exports.JupyterScanner = JupyterScanner;
+/**
+ * Convenience function to scan a notebook
+ */
+async function scanJupyterNotebook(filePath, basePath, patterns) {
+    const scanner = new JupyterScanner({ patterns });
+    return scanner.scanNotebook(filePath, basePath);
+}
 
 
 /***/ }),
