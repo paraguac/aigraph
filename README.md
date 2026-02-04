@@ -235,10 +235,10 @@ The scanner always runs both methods and shows a side-by-side comparison:
 ├──────────────────────────────┬───────────────┬───────────────┬─────────────┬─────────────┤
 │ Method                       │ Status        │ Total Found   │ Unique      │ Duration    │
 ├──────────────────────────────┼───────────────┼───────────────┼─────────────┼─────────────┤
-│ Regex Pattern Matching       │ ✅ Available  │ 487           │ 487         │ 3211ms      │
-│ CodeQL AST Analysis          │ ✅ Available  │ 167           │ 167         │ 89259ms     │
+│ Regex Pattern Matching       │ ✅ Available  │ 191           │ 175         │ 3170ms      │
+│ CodeQL AST Analysis          │ ✅ Available  │ 167           │ 151         │ 86740ms     │
 ├──────────────────────────────┴───────────────┴───────────────┴─────────────┴─────────────┤
-│ Found by both: 0          | Regex only: 487        | CodeQL only: 167                   │
+│ Found by both: 16         | Regex only: 175        | CodeQL only: 151                   │
 └───────────────────────────────────────────────────────────────────────────────────────────┘
 
 ┌─────────────────────────────────────────────────────────────────────────────────────────────┐
@@ -246,20 +246,13 @@ The scanner always runs both methods and shows a side-by-side comparison:
 ├──────────────────────┬─────────────────────────────────┬─────────────────────────────────┤
 │ Category             │ Regex Detections                │ CodeQL Detections               │
 ├──────────────────────┼─────────────────────────────────┼─────────────────────────────────┤
-│ AI Models            │ 51 (gemini, claude)             │ 152 (ai-model-name, claude...)  │
-│ AI Frameworks        │ 0 ()                            │ 12 (ai-sdk-import)              │
-│ AI Platforms         │ 282 (google-ai-studio, openr..) │ 0 ()                            │
-│ MCP Servers          │ 114 (mcp-server-generic)        │ 0 ()                            │
+│ AI Models            │ 51 (gemini, claude)             │ 86 (gpt-4, gemini-2.5, ...)     │
+│ AI Frameworks        │ 0 ()                            │ 69 (openai-sdk, langchain...)   │
+│ AI Platforms         │ 74 (google-ai-studio, openr..)  │ 0 ()                            │
+│ MCP Servers          │ 26 (mcp-server-generic)         │ 0 ()                            │
+│ MCP Tools            │ 35 (mcp-sdk, mcp-client)        │ 9 (mcp-server-generic)          │
+│ API Endpoints        │ 5 (google-ai-api, openr..)      │ 3 (google-ai-api, openr..)      │
 └──────────────────────┴─────────────────────────────────┴─────────────────────────────────┘
-
-┌─────────────────────────────────────────────────────────────────────────────────────────────┐
-│ 🔍 CODEQL-ONLY DETECTIONS (AST analysis found these that regex missed)                     │
-├──────────────────────────────┬──────────┬───────────────────────────────────────────────────┤
-│ Name                         │ Count    │ Files                                             │
-├──────────────────────────────┼──────────┼───────────────────────────────────────────────────┤
-│ ai-client-instantiation      │ 57       │ src/servers/mcp-server.ts, src/services/sync/...  │
-│ ai-sdk-import                │ 12       │ docs/context/agent-sdk-v2-examples.ts, ...        │
-└──────────────────────────────┴──────────┴───────────────────────────────────────────────────┘
 ```
 
 ## Detected Components
