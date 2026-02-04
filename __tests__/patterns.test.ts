@@ -128,7 +128,8 @@ describe('Pattern Detection', () => {
 
   describe('MCP Server Patterns', () => {
     test('detects generic MCP server', () => {
-      testPatternMatch(MCP_SERVER_PATTERNS, 'mcp-server-generic', 'McpServer', true);
+      testPatternMatch(MCP_SERVER_PATTERNS, 'mcp-server-generic', 'new McpServer()', true);
+      testPatternMatch(MCP_SERVER_PATTERNS, 'mcp-server-generic', '"mcpServers":', true);
       testPatternMatch(MCP_SERVER_PATTERNS, 'mcp-server-generic', '@modelcontextprotocol/server', true);
     });
 

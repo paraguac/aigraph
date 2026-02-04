@@ -12161,6 +12161,50 @@ exports.MODEL_PATTERNS = [
  * Agentic AI Frameworks
  */
 exports.FRAMEWORK_PATTERNS = [
+    // OpenAI SDK - matches CodeQL ai-sdk-import detection
+    {
+        category: 'framework',
+        name: 'openai-sdk',
+        patterns: [
+            /from\s+openai\s+import/gi,
+            /import\s+.*\s+from\s+['"`]openai['"`]/gi,
+            /import\s+OpenAI\s+from/gi,
+            /require\s*\(\s*['"`]openai['"`]\s*\)/gi,
+            /new\s+OpenAI\s*\(/gi,
+        ],
+        filePatterns: ['*.py', '*.js', '*.ts', '*.jsx', '*.tsx'],
+        confidence: 'high',
+        metadata: { type: 'sdk', provider: 'openai' }
+    },
+    // Anthropic SDK - matches CodeQL ai-sdk-import detection
+    {
+        category: 'framework',
+        name: 'anthropic-sdk',
+        patterns: [
+            /from\s+anthropic\s+import/gi,
+            /import\s+.*\s+from\s+['"`]@anthropic-ai\/sdk['"`]/gi,
+            /import\s+Anthropic\s+from/gi,
+            /require\s*\(\s*['"`]@anthropic-ai/gi,
+            /new\s+Anthropic\s*\(/gi,
+        ],
+        filePatterns: ['*.py', '*.js', '*.ts', '*.jsx', '*.tsx'],
+        confidence: 'high',
+        metadata: { type: 'sdk', provider: 'anthropic' }
+    },
+    // Vercel AI SDK
+    {
+        category: 'framework',
+        name: 'vercel-ai-sdk',
+        patterns: [
+            /from\s+['"`]ai['"`]\s+import/gi,
+            /import\s+.*\s+from\s+['"`]ai['"`]/gi,
+            /import\s+.*\s+from\s+['"`]@ai-sdk\//gi,
+            /require\s*\(\s*['"`]ai['"`]\s*\)/gi,
+        ],
+        filePatterns: ['*.js', '*.ts', '*.jsx', '*.tsx'],
+        confidence: 'high',
+        metadata: { type: 'sdk', provider: 'vercel' }
+    },
     // LangChain
     {
         category: 'framework',
@@ -12547,8 +12591,10 @@ exports.PLATFORM_PATTERNS = [
         category: 'platform',
         name: 'openrouter',
         patterns: [
-            /openrouter\.ai/gi,
-            /openrouter/gi,
+            /openrouter\.ai\/api/gi,
+            /OPENROUTER_API_KEY/gi,
+            /['"`]openrouter['"`]/gi,
+            /baseURL.*openrouter/gi,
         ],
         confidence: 'high',
         metadata: { provider: 'openrouter' }
@@ -12558,8 +12604,12 @@ exports.PLATFORM_PATTERNS = [
         category: 'platform',
         name: 'ollama',
         patterns: [
-            /ollama/gi,
+            /['"`]ollama['"`]/gi,
+            /from\s+ollama/gi,
+            /import\s+.*ollama/gi,
+            /require\s*\(\s*['"`]ollama/gi,
             /localhost:11434/gi,
+            /OLLAMA_HOST/gi,
         ],
         confidence: 'high',
         metadata: { provider: 'ollama', type: 'local' }
@@ -12580,15 +12630,17 @@ exports.PLATFORM_PATTERNS = [
  * MCP (Model Context Protocol) Servers
  */
 exports.MCP_SERVER_PATTERNS = [
-    // Generic MCP Server patterns
+    // Generic MCP Server patterns - more specific to reduce false positives
     {
         category: 'mcp-server',
         name: 'mcp-server-generic',
         patterns: [
-            /mcp[-_]server/gi,
-            /McpServer/gi,
-            /mcp\.server/gi,
+            /['"`]mcp[-_]server/gi,
+            /new\s+McpServer/gi,
+            /class\s+\w*McpServer/gi,
             /@modelcontextprotocol\/server/gi,
+            /mcpServers\s*[=:]/gi,
+            /['"`]mcpServers['"`]/gi,
         ],
         confidence: 'high',
         metadata: { type: 'server' }
@@ -13626,17 +13678,121 @@ class CodeQLScanner {
         else if (ruleId.includes('mcp-server')) {
             category = 'mcp-server';
         }
-        else if (ruleId.includes('mcp-tool') || ruleId.includes('mcp-client')) {
+        else if (ruleId.includes('mcp-tool') || ruleId.includes('mcp-client') || ruleId.includes('mcp-detection')) {
             category = 'mcp-tool';
         }
         else if (ruleId.includes('env') || ruleId.includes('environment')) {
             category = 'platform';
             context = 'env';
         }
-        // Extract name from message (usually the first quoted string)
-        const nameMatch = message.match(/['"]([^'"]+)['"]/);
-        const name = nameMatch ? nameMatch[1] : parts[parts.length - 1];
+        else if (ruleId.includes('client-instantiation')) {
+            category = 'framework';
+            context = 'code';
+        }
+        // Extract meaningful name from message
+        let name = parts[parts.length - 1];
+        // Try to extract specific module/class names from common message patterns
+        // "AI SDK import detected: openai" -> "openai-sdk"
+        // "AI client instantiation: new OpenAI()" -> "openai-client"
+        // "AI model name detected: gpt-4" -> "gpt-4"
+        const importMatch = message.match(/import detected:\s*([^\s(]+)/i);
+        const instantiationMatch = message.match(/instantiation:\s*(?:new\s+)?(\w+)/i);
+        const modelMatch = message.match(/model name detected:\s*['"]?([^'"]+)['"]?/i);
+        const endpointMatch = message.match(/endpoint detected:\s*([^\s]+)/i);
+        if (importMatch) {
+            // Map module names to standardized SDK names
+            const moduleName = importMatch[1].toLowerCase().replace(/^@/, '').replace(/\//g, '-');
+            name = this.normalizeModuleName(moduleName);
+        }
+        else if (instantiationMatch) {
+            // Map class names to SDK names
+            const className = instantiationMatch[1];
+            name = this.normalizeClassName(className);
+        }
+        else if (modelMatch) {
+            name = modelMatch[1].toLowerCase();
+        }
+        else if (endpointMatch) {
+            name = this.normalizeEndpointName(endpointMatch[1]);
+        }
         return { category, name, context };
+    }
+    /**
+     * Normalize module name to match regex pattern names
+     */
+    normalizeModuleName(moduleName) {
+        const moduleMap = {
+            'openai': 'openai-sdk',
+            'anthropic-ai-sdk': 'anthropic-sdk',
+            'anthropic': 'anthropic-sdk',
+            'langchain': 'langchain',
+            'langgraph': 'langgraph',
+            'google-generative-ai': 'google-generativeai',
+            'google-cloud-vertexai': 'google-vertex-ai',
+            'ai': 'vercel-ai-sdk',
+            'ai-sdk': 'vercel-ai-sdk',
+            'modelcontextprotocol-sdk': 'mcp-sdk',
+            'ollama': 'ollama',
+            'groq-sdk': 'groq',
+            'cohere-ai': 'cohere',
+            'replicate': 'replicate',
+            'together-ai': 'together-ai',
+            'mistralai-mistralai': 'mistral',
+            'huggingface-inference': 'huggingface',
+            'azure-openai': 'azure-openai',
+            'aws-sdk-client-bedrock': 'aws-bedrock',
+        };
+        return moduleMap[moduleName] || moduleName;
+    }
+    /**
+     * Normalize class name to match regex pattern names
+     */
+    normalizeClassName(className) {
+        const classMap = {
+            'OpenAI': 'openai-sdk',
+            'OpenAIApi': 'openai-sdk',
+            'Anthropic': 'anthropic-sdk',
+            'AnthropicBedrock': 'anthropic-sdk',
+            'ChatOpenAI': 'langchain',
+            'ChatAnthropic': 'langchain',
+            'ChatGoogleGenerativeAI': 'langchain',
+            'ChatVertexAI': 'langchain',
+            'ChatGroq': 'langchain',
+            'ChatCohere': 'langchain',
+            'ChatOllama': 'langchain',
+            'GoogleGenerativeAI': 'google-generativeai',
+            'GenerativeModel': 'google-generativeai',
+            'Groq': 'groq',
+            'Together': 'together-ai',
+            'Replicate': 'replicate',
+            'MistralClient': 'mistral',
+            'Mistral': 'mistral',
+            'McpServer': 'mcp-server-generic',
+            'Server': 'mcp-server-generic',
+            'McpClient': 'mcp-client',
+            'Ollama': 'ollama',
+        };
+        return classMap[className] || className.toLowerCase();
+    }
+    /**
+     * Normalize API endpoint to a name
+     */
+    normalizeEndpointName(url) {
+        if (url.includes('openai.com'))
+            return 'openai-api';
+        if (url.includes('anthropic.com'))
+            return 'anthropic-api';
+        if (url.includes('googleapis.com'))
+            return 'google-ai-api';
+        if (url.includes('openrouter.ai'))
+            return 'openrouter-api';
+        if (url.includes('groq.com'))
+            return 'groq-api';
+        if (url.includes('together.xyz') || url.includes('together.ai'))
+            return 'together-api';
+        if (url.includes('localhost:11434'))
+            return 'ollama-local';
+        return 'ai-api-endpoint';
     }
     /**
      * Get confidence level from rule

@@ -535,18 +535,116 @@ export class CodeQLScanner {
       category = 'api-endpoint';
     } else if (ruleId.includes('mcp-server')) {
       category = 'mcp-server';
-    } else if (ruleId.includes('mcp-tool') || ruleId.includes('mcp-client')) {
+    } else if (ruleId.includes('mcp-tool') || ruleId.includes('mcp-client') || ruleId.includes('mcp-detection')) {
       category = 'mcp-tool';
     } else if (ruleId.includes('env') || ruleId.includes('environment')) {
       category = 'platform';
       context = 'env';
+    } else if (ruleId.includes('client-instantiation')) {
+      category = 'framework';
+      context = 'code';
     }
 
-    // Extract name from message (usually the first quoted string)
-    const nameMatch = message.match(/['"]([^'"]+)['"]/);
-    const name = nameMatch ? nameMatch[1] : parts[parts.length - 1];
+    // Extract meaningful name from message
+    let name = parts[parts.length - 1];
+    
+    // Try to extract specific module/class names from common message patterns
+    // "AI SDK import detected: openai" -> "openai-sdk"
+    // "AI client instantiation: new OpenAI()" -> "openai-client"
+    // "AI model name detected: gpt-4" -> "gpt-4"
+    const importMatch = message.match(/import detected:\s*([^\s(]+)/i);
+    const instantiationMatch = message.match(/instantiation:\s*(?:new\s+)?(\w+)/i);
+    const modelMatch = message.match(/model name detected:\s*['"]?([^'"]+)['"]?/i);
+    const endpointMatch = message.match(/endpoint detected:\s*([^\s]+)/i);
+    
+    if (importMatch) {
+      // Map module names to standardized SDK names
+      const moduleName = importMatch[1].toLowerCase().replace(/^@/, '').replace(/\//g, '-');
+      name = this.normalizeModuleName(moduleName);
+    } else if (instantiationMatch) {
+      // Map class names to SDK names
+      const className = instantiationMatch[1];
+      name = this.normalizeClassName(className);
+    } else if (modelMatch) {
+      name = modelMatch[1].toLowerCase();
+    } else if (endpointMatch) {
+      name = this.normalizeEndpointName(endpointMatch[1]);
+    }
 
     return { category, name, context };
+  }
+
+  /**
+   * Normalize module name to match regex pattern names
+   */
+  private normalizeModuleName(moduleName: string): string {
+    const moduleMap: Record<string, string> = {
+      'openai': 'openai-sdk',
+      'anthropic-ai-sdk': 'anthropic-sdk',
+      'anthropic': 'anthropic-sdk',
+      'langchain': 'langchain',
+      'langgraph': 'langgraph',
+      'google-generative-ai': 'google-generativeai',
+      'google-cloud-vertexai': 'google-vertex-ai',
+      'ai': 'vercel-ai-sdk',
+      'ai-sdk': 'vercel-ai-sdk',
+      'modelcontextprotocol-sdk': 'mcp-sdk',
+      'ollama': 'ollama',
+      'groq-sdk': 'groq',
+      'cohere-ai': 'cohere',
+      'replicate': 'replicate',
+      'together-ai': 'together-ai',
+      'mistralai-mistralai': 'mistral',
+      'huggingface-inference': 'huggingface',
+      'azure-openai': 'azure-openai',
+      'aws-sdk-client-bedrock': 'aws-bedrock',
+    };
+    return moduleMap[moduleName] || moduleName;
+  }
+
+  /**
+   * Normalize class name to match regex pattern names
+   */
+  private normalizeClassName(className: string): string {
+    const classMap: Record<string, string> = {
+      'OpenAI': 'openai-sdk',
+      'OpenAIApi': 'openai-sdk',
+      'Anthropic': 'anthropic-sdk',
+      'AnthropicBedrock': 'anthropic-sdk',
+      'ChatOpenAI': 'langchain',
+      'ChatAnthropic': 'langchain',
+      'ChatGoogleGenerativeAI': 'langchain',
+      'ChatVertexAI': 'langchain',
+      'ChatGroq': 'langchain',
+      'ChatCohere': 'langchain',
+      'ChatOllama': 'langchain',
+      'GoogleGenerativeAI': 'google-generativeai',
+      'GenerativeModel': 'google-generativeai',
+      'Groq': 'groq',
+      'Together': 'together-ai',
+      'Replicate': 'replicate',
+      'MistralClient': 'mistral',
+      'Mistral': 'mistral',
+      'McpServer': 'mcp-server-generic',
+      'Server': 'mcp-server-generic',
+      'McpClient': 'mcp-client',
+      'Ollama': 'ollama',
+    };
+    return classMap[className] || className.toLowerCase();
+  }
+
+  /**
+   * Normalize API endpoint to a name
+   */
+  private normalizeEndpointName(url: string): string {
+    if (url.includes('openai.com')) return 'openai-api';
+    if (url.includes('anthropic.com')) return 'anthropic-api';
+    if (url.includes('googleapis.com')) return 'google-ai-api';
+    if (url.includes('openrouter.ai')) return 'openrouter-api';
+    if (url.includes('groq.com')) return 'groq-api';
+    if (url.includes('together.xyz') || url.includes('together.ai')) return 'together-api';
+    if (url.includes('localhost:11434')) return 'ollama-local';
+    return 'ai-api-endpoint';
   }
 
   /**

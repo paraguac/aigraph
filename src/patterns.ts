@@ -196,6 +196,50 @@ export const MODEL_PATTERNS: DetectionPattern[] = [
  * Agentic AI Frameworks
  */
 export const FRAMEWORK_PATTERNS: DetectionPattern[] = [
+  // OpenAI SDK - matches CodeQL ai-sdk-import detection
+  {
+    category: 'framework',
+    name: 'openai-sdk',
+    patterns: [
+      /from\s+openai\s+import/gi,
+      /import\s+.*\s+from\s+['"`]openai['"`]/gi,
+      /import\s+OpenAI\s+from/gi,
+      /require\s*\(\s*['"`]openai['"`]\s*\)/gi,
+      /new\s+OpenAI\s*\(/gi,
+    ],
+    filePatterns: ['*.py', '*.js', '*.ts', '*.jsx', '*.tsx'],
+    confidence: 'high',
+    metadata: { type: 'sdk', provider: 'openai' }
+  },
+  // Anthropic SDK - matches CodeQL ai-sdk-import detection
+  {
+    category: 'framework',
+    name: 'anthropic-sdk',
+    patterns: [
+      /from\s+anthropic\s+import/gi,
+      /import\s+.*\s+from\s+['"`]@anthropic-ai\/sdk['"`]/gi,
+      /import\s+Anthropic\s+from/gi,
+      /require\s*\(\s*['"`]@anthropic-ai/gi,
+      /new\s+Anthropic\s*\(/gi,
+    ],
+    filePatterns: ['*.py', '*.js', '*.ts', '*.jsx', '*.tsx'],
+    confidence: 'high',
+    metadata: { type: 'sdk', provider: 'anthropic' }
+  },
+  // Vercel AI SDK
+  {
+    category: 'framework',
+    name: 'vercel-ai-sdk',
+    patterns: [
+      /from\s+['"`]ai['"`]\s+import/gi,
+      /import\s+.*\s+from\s+['"`]ai['"`]/gi,
+      /import\s+.*\s+from\s+['"`]@ai-sdk\//gi,
+      /require\s*\(\s*['"`]ai['"`]\s*\)/gi,
+    ],
+    filePatterns: ['*.js', '*.ts', '*.jsx', '*.tsx'],
+    confidence: 'high',
+    metadata: { type: 'sdk', provider: 'vercel' }
+  },
   // LangChain
   {
     category: 'framework',
@@ -583,8 +627,10 @@ export const PLATFORM_PATTERNS: DetectionPattern[] = [
     category: 'platform',
     name: 'openrouter',
     patterns: [
-      /openrouter\.ai/gi,
-      /openrouter/gi,
+      /openrouter\.ai\/api/gi,
+      /OPENROUTER_API_KEY/gi,
+      /['"`]openrouter['"`]/gi,
+      /baseURL.*openrouter/gi,
     ],
     confidence: 'high',
     metadata: { provider: 'openrouter' }
@@ -594,8 +640,12 @@ export const PLATFORM_PATTERNS: DetectionPattern[] = [
     category: 'platform',
     name: 'ollama',
     patterns: [
-      /ollama/gi,
+      /['"`]ollama['"`]/gi,
+      /from\s+ollama/gi,
+      /import\s+.*ollama/gi,
+      /require\s*\(\s*['"`]ollama/gi,
       /localhost:11434/gi,
+      /OLLAMA_HOST/gi,
     ],
     confidence: 'high',
     metadata: { provider: 'ollama', type: 'local' }
@@ -617,15 +667,17 @@ export const PLATFORM_PATTERNS: DetectionPattern[] = [
  * MCP (Model Context Protocol) Servers
  */
 export const MCP_SERVER_PATTERNS: DetectionPattern[] = [
-  // Generic MCP Server patterns
+  // Generic MCP Server patterns - more specific to reduce false positives
   {
     category: 'mcp-server',
     name: 'mcp-server-generic',
     patterns: [
-      /mcp[-_]server/gi,
-      /McpServer/gi,
-      /mcp\.server/gi,
+      /['"`]mcp[-_]server/gi,
+      /new\s+McpServer/gi,
+      /class\s+\w*McpServer/gi,
       /@modelcontextprotocol\/server/gi,
+      /mcpServers\s*[=:]/gi,
+      /['"`]mcpServers['"`]/gi,
     ],
     confidence: 'high',
     metadata: { type: 'server' }
