@@ -2,10 +2,7 @@
 /**
  * AIGraph Scanner - Command Line Interface
  *
- * This CLI allows running the AIGraph scanner from anywhere,
- * not just as a GitHub Action.
- *
- * Enhanced with CodeQL integration, Jupyter notebook support,
- * Infrastructure as Code scanning, and configurable ignore patterns.
+ * Scans codebases for AI components using both regex pattern matching
+ * and CodeQL AST analysis (when available).
  */
 export {};

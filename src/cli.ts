@@ -2,11 +2,8 @@
 /**
  * AIGraph Scanner - Command Line Interface
  * 
- * This CLI allows running the AIGraph scanner from anywhere,
- * not just as a GitHub Action.
- * 
- * Enhanced with CodeQL integration, Jupyter notebook support,
- * Infrastructure as Code scanning, and configurable ignore patterns.
+ * Scans codebases for AI components using both regex pattern matching
+ * and CodeQL AST analysis (when available).
  */
 
 import { scan } from './core';
@@ -23,13 +20,14 @@ Arguments:
                  Default: . (current directory)
 
 Options:
-  -s, --spec <file>        Path to the spec file (default: .aigraph-spec.yml)
+  -s, --spec <file>        Path to the policy spec file
+                           Default locations: ~/.aigraph-spec.yml, /etc/aigraph/spec.yml
   -f, --format <format>    Output format: json, markdown, text (default: text)
   -q, --quiet              Suppress progress messages, only output results
   --no-fail                Don't exit with error code on violations
   
   Scanning Options:
-  --use-codeql             Use CodeQL for AST-based analysis (requires CodeQL CLI)
+  --no-codeql              Disable CodeQL analysis (only use regex)
   --no-notebooks           Skip scanning Jupyter notebooks (.ipynb files)
   --no-iac                 Skip scanning Infrastructure as Code files
   --include-comments       Include detections found in comments
@@ -42,14 +40,17 @@ Options:
   -h, --help               Show this help message
   -v, --version            Show version number
 
+Note:
+  The scanner automatically uses both regex AND CodeQL (if installed).
+  Results from both methods are merged and compared in the output.
+
 Examples:
   aigraph-scanner                             # Scan current directory
   aigraph-scanner ./src                       # Scan src directory
   aigraph-scanner langchain-ai/langchain      # Scan public GitHub repo
-  aigraph-scanner openai/openai-python@main   # Scan specific branch
-  aigraph-scanner -s custom-spec.yml ./src    # Use custom spec file
+  aigraph-scanner -s ~/my-spec.yml ./src      # Use custom spec file
+  aigraph-scanner --no-codeql .               # Skip CodeQL, regex only
   aigraph-scanner -f json .                   # Output as JSON
-  aigraph-scanner --use-codeql .              # Use CodeQL for deeper analysis
   aigraph-scanner --ignore-dir test .         # Ignore test directories
   aigraph-scanner --no-notebooks .            # Skip Jupyter notebooks
 `);
@@ -57,13 +58,13 @@ Examples:
 
 function parseArgs(args: string[]): {
   target: string;
-  specFile: string;
+  specFile: string | undefined;
   outputFormat: 'json' | 'markdown' | 'text';
   quiet: boolean;
   failOnViolation: boolean;
   showHelp: boolean;
   showVersion: boolean;
-  useCodeQL: boolean;
+  disableCodeQL: boolean;
   scanNotebooks: boolean;
   scanIaC: boolean;
   includeComments: boolean;
@@ -73,13 +74,13 @@ function parseArgs(args: string[]): {
 } {
   const result = {
     target: '.',
-    specFile: '.aigraph-spec.yml',
+    specFile: undefined as string | undefined,
     outputFormat: 'text' as 'json' | 'markdown' | 'text',
     quiet: false,
     failOnViolation: true,
     showHelp: false,
     showVersion: false,
-    useCodeQL: false,
+    disableCodeQL: false,
     scanNotebooks: true,
     scanIaC: true,
     includeComments: false,
@@ -102,8 +103,8 @@ function parseArgs(args: string[]): {
       result.quiet = true;
     } else if (arg === '--no-fail') {
       result.failOnViolation = false;
-    } else if (arg === '--use-codeql') {
-      result.useCodeQL = true;
+    } else if (arg === '--no-codeql') {
+      result.disableCodeQL = true;
     } else if (arg === '--no-notebooks') {
       result.scanNotebooks = false;
     } else if (arg === '--no-iac') {
@@ -192,6 +193,13 @@ async function main() {
       specFile: options.specFile,
       outputFormat: options.outputFormat,
       failOnViolation: options.failOnViolation,
+      disableCodeQL: options.disableCodeQL,
+      scanNotebooks: options.scanNotebooks,
+      scanIaC: options.scanIaC,
+      includeComments: options.includeComments,
+      includeStrings: options.includeStrings,
+      ignoreDirs: options.ignoreDirs,
+      ignoreFiles: options.ignoreFiles,
       log,
     });
 

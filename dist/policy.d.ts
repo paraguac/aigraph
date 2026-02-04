@@ -11,9 +11,9 @@ export declare class PolicyEnforcer {
     private spec;
     constructor(spec?: AIGraphSpec);
     /**
-     * Load spec from a file
+     * Load spec from a file. If specPath is undefined, returns default spec.
      */
-    static loadSpec(specPath: string): Promise<AIGraphSpec>;
+    static loadSpec(specPath: string | undefined): Promise<AIGraphSpec>;
     /**
      * Validate and normalize spec structure
      */

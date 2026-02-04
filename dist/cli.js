@@ -11063,11 +11063,12 @@ module.exports = toRegexRange;
 /**
  * AIGraph Scanner - Core Module
  *
- * This module provides the core scanning functionality that can be used
- * independently of the GitHub Action context. Use this for CLI or library usage.
+ * This module provides the core scanning functionality for the CLI tool.
  *
  * Enhanced with CodeQL integration, Jupyter notebook support,
  * Infrastructure as Code scanning, and configurable ignore patterns.
+ *
+ * Both regex and CodeQL scanning are run by default (when CodeQL is available).
  */
 var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
     if (k2 === undefined) k2 = k;
@@ -11080,16 +11081,69 @@ var __createBinding = (this && this.__createBinding) || (Object.create ? (functi
     if (k2 === undefined) k2 = k;
     o[k2] = m[k];
 }));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
 var __exportStar = (this && this.__exportStar) || function(m, exports) {
     for (var p in m) if (p !== "default" && !Object.prototype.hasOwnProperty.call(exports, p)) __createBinding(exports, m, p);
 };
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.API_ENDPOINT_PATTERNS = exports.MCP_TOOL_PATTERNS = exports.MCP_SERVER_PATTERNS = exports.PLATFORM_PATTERNS = exports.FRAMEWORK_PATTERNS = exports.MODEL_PATTERNS = exports.ALL_PATTERNS = exports.isGitHubRepoRef = exports.cloneGitHubRepo = exports.parseGitHubRepo = exports.formatAsText = exports.formatAsMarkdown = exports.formatAsJson = exports.formatResults = exports.PolicyEnforcer = exports.isIaCFile = exports.scanIaCFile = exports.IaCScanner = exports.scanJupyterNotebook = exports.JupyterScanner = exports.runCodeQLScan = exports.CodeQLScanner = exports.FileScanner = void 0;
+exports.findSpecFile = findSpecFile;
 exports.scan = scan;
+const fs = __importStar(__nccwpck_require__(9896));
+const path = __importStar(__nccwpck_require__(6928));
+const os = __importStar(__nccwpck_require__(857));
 const scanners_1 = __nccwpck_require__(2039);
 const policy_1 = __nccwpck_require__(1237);
 const formatter_1 = __nccwpck_require__(1845);
 const github_repo_1 = __nccwpck_require__(2505);
+/**
+ * Default spec file locations to check (in order of priority)
+ */
+const SPEC_FILE_LOCATIONS = [
+    '.aigraph-spec.yml',
+    '.aigraph-spec.yaml',
+    path.join(os.homedir(), '.aigraph-spec.yml'),
+    path.join(os.homedir(), '.aigraph-spec.yaml'),
+    path.join(os.homedir(), '.config', 'aigraph', 'spec.yml'),
+    '/etc/aigraph/spec.yml',
+    '/etc/aigraph/spec.yaml',
+];
+/**
+ * Find the spec file by checking default locations
+ */
+function findSpecFile(basePath = '.') {
+    // Check local paths relative to basePath first
+    for (const location of SPEC_FILE_LOCATIONS) {
+        const fullPath = location.startsWith('/') || location.startsWith(os.homedir())
+            ? location
+            : path.join(basePath, location);
+        if (fs.existsSync(fullPath)) {
+            return fullPath;
+        }
+    }
+    return undefined;
+}
 /**
  * Run the AIGraph scanner on a target path or GitHub repository.
  *
@@ -11099,7 +11153,7 @@ const github_repo_1 = __nccwpck_require__(2505);
  * ```typescript
  * import { scan } from 'aigraph-scanner';
  *
- * // Scan a local directory
+ * // Scan a local directory (uses both regex and CodeQL if available)
  * const result = await scan({ target: './my-project' });
  * console.log(result.formattedOutput);
  *
@@ -11107,15 +11161,15 @@ const github_repo_1 = __nccwpck_require__(2505);
  * const result = await scan({ target: 'owner/repo@main' });
  * console.log(result.results.violations);
  *
- * // Use CodeQL for deeper analysis
- * const result = await scan({ target: '.', useCodeQL: true });
+ * // Disable CodeQL (regex only)
+ * const result = await scan({ target: '.', disableCodeQL: true });
  *
  * // Ignore test directories
  * const result = await scan({ target: '.', ignoreDirs: ['test', '__tests__'] });
  * ```
  */
 async function scan(options) {
-    const { target, specFile = '.aigraph-spec.yml', outputFormat = 'text', log = function noop() { }, useCodeQL = false, scanNotebooks = true, scanIaC = true, includeComments = false, includeStrings = true, ignoreDirs = [], ignoreFiles = [], } = options;
+    const { target, specFile, outputFormat = 'text', log = function noop() { }, disableCodeQL = false, scanNotebooks = true, scanIaC = true, includeComments = false, includeStrings = true, ignoreDirs = [], ignoreFiles = [], } = options;
     let scanPath = target;
     let cloneResult;
     try {
@@ -11131,10 +11185,17 @@ async function scan(options) {
         else {
             log(`📁 Scan path: ${scanPath}`);
         }
-        log(`📋 Spec file: ${specFile}`);
+        // Find spec file (auto-detect if not provided)
+        const resolvedSpecFile = specFile || findSpecFile(scanPath);
+        if (resolvedSpecFile) {
+            log(`📋 Spec file: ${resolvedSpecFile}`);
+        }
+        else {
+            log('📋 No spec file found, using defaults');
+        }
         // Load policy spec
         log('📜 Loading policy spec...');
-        const spec = await policy_1.PolicyEnforcer.loadSpec(specFile);
+        const spec = await policy_1.PolicyEnforcer.loadSpec(resolvedSpecFile);
         const enforcer = new policy_1.PolicyEnforcer(spec);
         // Build ignore config
         const ignoreConfig = {
@@ -11142,7 +11203,8 @@ async function scan(options) {
             files: [...ignoreFiles, ...(spec.ignore?.files || [])],
             patterns: spec.ignore?.patterns || [],
         };
-        // Build scanner options
+        // Build scanner options - CodeQL runs by default unless disabled
+        const useCodeQL = !disableCodeQL;
         const scannerOptions = {
             useCodeQL,
             scanNotebooks,
@@ -11153,8 +11215,12 @@ async function scan(options) {
         };
         // Scan files
         log('🔎 Scanning files for AI components...');
+        log('  Running regex pattern matching...');
         if (useCodeQL) {
-            log('  Using CodeQL for AST-based analysis...');
+            log('  Running CodeQL AST analysis (if available)...');
+        }
+        else {
+            log('  CodeQL disabled, using regex only');
         }
         if (scanNotebooks) {
             log('  Including Jupyter notebooks...');
@@ -11243,6 +11309,60 @@ function formatAsJson(results) {
     return JSON.stringify(results, null, 2);
 }
 /**
+ * Format method comparison summary
+ */
+function formatMethodComparison(results) {
+    const lines = [];
+    if (!results.regexResults && !results.codeqlResults) {
+        return lines;
+    }
+    lines.push('┌─────────────────────────────────────────────────────────────────────────────┐');
+    lines.push('│ SCANNING METHOD COMPARISON                                                  │');
+    lines.push('├──────────────────────────┬───────────────┬───────────────┬─────────────────┤');
+    lines.push('│ Method                   │ Status        │ Detections    │ Duration        │');
+    lines.push('├──────────────────────────┼───────────────┼───────────────┼─────────────────┤');
+    if (results.regexResults) {
+        const r = results.regexResults;
+        const status = r.available ? '✅ Available' : '❌ Failed';
+        const count = String(r.detections.length);
+        const duration = `${r.duration}ms`;
+        lines.push(`│ ${padRight('Regex Pattern Matching', 24)} │ ${padRight(status, 13)} │ ${padRight(count, 13)} │ ${padRight(duration, 15)} │`);
+    }
+    if (results.codeqlResults) {
+        const c = results.codeqlResults;
+        let status;
+        if (c.available) {
+            status = '✅ Available';
+        }
+        else if (c.error?.includes('not found') || c.error?.includes('not available')) {
+            status = '⚠️ Not installed';
+        }
+        else {
+            status = '❌ Failed';
+        }
+        const count = String(c.detections.length);
+        const duration = c.duration > 0 ? `${c.duration}ms` : '-';
+        lines.push(`│ ${padRight('CodeQL AST Analysis', 24)} │ ${padRight(status, 13)} │ ${padRight(count, 13)} │ ${padRight(duration, 15)} │`);
+    }
+    lines.push('└──────────────────────────┴───────────────┴───────────────┴─────────────────┘');
+    // Show CodeQL-only detections if any
+    if (results.codeqlResults?.available && results.regexResults) {
+        const regexNames = new Set(results.regexResults.detections.map(d => `${d.name}:${d.file}:${d.line}`));
+        const codeqlOnly = results.codeqlResults.detections.filter(d => !regexNames.has(`${d.name}:${d.file}:${d.line}`));
+        if (codeqlOnly.length > 0) {
+            lines.push('');
+            lines.push(`│ ℹ️  CodeQL found ${codeqlOnly.length} additional detection(s) not found by regex`);
+        }
+    }
+    // Show if CodeQL is not installed
+    if (results.codeqlResults && !results.codeqlResults.available) {
+        lines.push('');
+        lines.push('│ 💡 Install CodeQL for deeper AST-based analysis: https://codeql.github.com/');
+    }
+    lines.push('');
+    return lines;
+}
+/**
  * Format scan results as Markdown
  */
 function formatAsMarkdown(results) {
@@ -11327,6 +11447,8 @@ function formatAsText(results) {
     lines.push('║                           AIGraph Scan Results                              ║');
     lines.push('╚══════════════════════════════════════════════════════════════════════════════╝');
     lines.push('');
+    // Method Comparison (at the top)
+    lines.push(...formatMethodComparison(results));
     // Summary Table
     lines.push('┌─────────────────────────────────────────────────────────────────────────────┐');
     lines.push('│ SUMMARY                                                                     │');
@@ -12690,9 +12812,12 @@ class PolicyEnforcer {
         this.spec = spec;
     }
     /**
-     * Load spec from a file
+     * Load spec from a file. If specPath is undefined, returns default spec.
      */
     static async loadSpec(specPath) {
+        if (!specPath) {
+            return DEFAULT_SPEC;
+        }
         const absolutePath = path.resolve(specPath);
         try {
             const content = await fs.promises.readFile(absolutePath, 'utf-8');
@@ -13674,29 +13799,49 @@ class FileScanner {
             .join('\n');
     }
     /**
-     * Scan all files in the scan path, optionally using CodeQL
+     * Scan all files in the scan path using both regex and CodeQL methods
+     * Always attempts both methods and reports comparison
      */
     async scan() {
         const files = await this.getFilesToScan();
         let allDetections = [];
-        // Try CodeQL first if enabled
-        if (this.options.useCodeQL) {
-            try {
-                const codeqlScanner = new codeql_scanner_1.CodeQLScanner({ scanPath: this.scanPath });
-                const codeqlDetections = await codeqlScanner.scan();
-                if (codeqlDetections.length > 0) {
-                    console.log(`  CodeQL found ${codeqlDetections.length} detections`);
-                    allDetections.push(...codeqlDetections);
-                }
-            }
-            catch (error) {
-                console.warn(`CodeQL scan failed, falling back to regex: ${error.message}`);
-            }
-        }
-        // Regex-based scanning (runs alongside or as fallback)
+        // Track results from each method
+        const regexResults = {
+            method: 'regex',
+            available: true,
+            detections: [],
+            duration: 0,
+        };
+        const codeqlResults = {
+            method: 'codeql',
+            available: false,
+            detections: [],
+            duration: 0,
+        };
+        // Run regex-based scanning
+        const regexStart = Date.now();
         for (const file of files) {
             const fileDetections = await this.scanFile(file);
-            allDetections.push(...fileDetections);
+            regexResults.detections.push(...fileDetections);
+        }
+        regexResults.duration = Date.now() - regexStart;
+        allDetections.push(...regexResults.detections);
+        // Always try CodeQL (if available)
+        const codeqlStart = Date.now();
+        try {
+            const codeqlScanner = new codeql_scanner_1.CodeQLScanner({ scanPath: this.scanPath });
+            const codeqlDetections = await codeqlScanner.scan();
+            codeqlResults.available = true;
+            codeqlResults.detections = codeqlDetections;
+            codeqlResults.duration = Date.now() - codeqlStart;
+            if (codeqlDetections.length > 0) {
+                allDetections.push(...codeqlDetections);
+            }
+        }
+        catch (error) {
+            codeqlResults.duration = Date.now() - codeqlStart;
+            codeqlResults.error = error.message;
+            // CodeQL not available or failed - that's okay, we have regex results
         }
         // Deduplicate detections (same name, file, and line)
         const uniqueDetections = this.deduplicateDetections(allDetections);
@@ -13705,6 +13850,8 @@ class FileScanner {
             detections: uniqueDetections,
             violations: [], // Violations are determined by policy enforcement
             summary,
+            regexResults,
+            codeqlResults,
         };
     }
     /**
@@ -14907,7 +15054,7 @@ module.exports.promise = queueAsPromised
 /***/ ((module) => {
 
 "use strict";
-module.exports = /*#__PURE__*/JSON.parse('{"name":"aigraph-scanner","version":"1.0.0","description":"GitHub Action to scan repositories for AI models, MCP servers/tools, and Agentic AI frameworks","main":"dist/index.js","bin":{"aigraph-scanner":"./dist/cli.js"},"scripts":{"build":"ncc build src/index.ts -o dist --source-map --license licenses.txt","build:cli":"ncc build src/cli.ts -o dist/cli-build --source-map && mv dist/cli-build/index.js dist/cli.js && rm -rf dist/cli-build","build:all":"npm run build && npm run build:cli","test":"jest","test:coverage":"jest --coverage","lint":"eslint src/**/*.ts","format":"prettier --write src/**/*.ts","all":"npm run format && npm run lint && npm run test && npm run build:all"},"keywords":["github-action","ai","mcp","langchain","security","compliance"],"author":"AIGraph","license":"MIT","dependencies":{"@actions/core":"^1.10.1","@actions/github":"^6.0.0","fast-glob":"^3.3.2","js-yaml":"^4.1.0"},"devDependencies":{"@types/jest":"^29.5.11","@types/js-yaml":"^4.0.9","@types/node":"^20.10.6","@vercel/ncc":"^0.38.1","jest":"^29.7.0","ts-jest":"^29.1.1","typescript":"^5.3.3"}}');
+module.exports = /*#__PURE__*/JSON.parse('{"name":"aigraph-scanner","version":"1.0.0","description":"CLI tool to scan codebases for AI models, MCP servers/tools, and Agentic AI frameworks","main":"dist/index.js","bin":{"aigraph-scanner":"./dist/cli.js"},"scripts":{"build":"ncc build src/index.ts -o dist --source-map --license licenses.txt","build:cli":"ncc build src/cli.ts -o dist/cli-build --source-map && mv dist/cli-build/index.js dist/cli.js && rm -rf dist/cli-build","build:all":"npm run build && npm run build:cli","test":"jest","test:coverage":"jest --coverage","lint":"eslint src/**/*.ts","format":"prettier --write src/**/*.ts","all":"npm run format && npm run lint && npm run test && npm run build:all"},"keywords":["cli","ai","mcp","langchain","security","compliance","scanner","codeql"],"author":"AIGraph","license":"MIT","dependencies":{"fast-glob":"^3.3.2","js-yaml":"^4.1.0"},"devDependencies":{"@types/jest":"^29.5.11","@types/js-yaml":"^4.0.9","@types/node":"^20.10.6","@vercel/ncc":"^0.38.1","jest":"^29.7.0","ts-jest":"^29.1.1","typescript":"^5.3.3"}}');
 
 /***/ })
 
@@ -14958,11 +15105,8 @@ var exports = __webpack_exports__;
 /**
  * AIGraph Scanner - Command Line Interface
  *
- * This CLI allows running the AIGraph scanner from anywhere,
- * not just as a GitHub Action.
- *
- * Enhanced with CodeQL integration, Jupyter notebook support,
- * Infrastructure as Code scanning, and configurable ignore patterns.
+ * Scans codebases for AI components using both regex pattern matching
+ * and CodeQL AST analysis (when available).
  */
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 const core_1 = __nccwpck_require__(828);
@@ -14978,13 +15122,14 @@ Arguments:
                  Default: . (current directory)
 
 Options:
-  -s, --spec <file>        Path to the spec file (default: .aigraph-spec.yml)
+  -s, --spec <file>        Path to the policy spec file
+                           Default locations: ~/.aigraph-spec.yml, /etc/aigraph/spec.yml
   -f, --format <format>    Output format: json, markdown, text (default: text)
   -q, --quiet              Suppress progress messages, only output results
   --no-fail                Don't exit with error code on violations
   
   Scanning Options:
-  --use-codeql             Use CodeQL for AST-based analysis (requires CodeQL CLI)
+  --no-codeql              Disable CodeQL analysis (only use regex)
   --no-notebooks           Skip scanning Jupyter notebooks (.ipynb files)
   --no-iac                 Skip scanning Infrastructure as Code files
   --include-comments       Include detections found in comments
@@ -14997,14 +15142,17 @@ Options:
   -h, --help               Show this help message
   -v, --version            Show version number
 
+Note:
+  The scanner automatically uses both regex AND CodeQL (if installed).
+  Results from both methods are merged and compared in the output.
+
 Examples:
   aigraph-scanner                             # Scan current directory
   aigraph-scanner ./src                       # Scan src directory
   aigraph-scanner langchain-ai/langchain      # Scan public GitHub repo
-  aigraph-scanner openai/openai-python@main   # Scan specific branch
-  aigraph-scanner -s custom-spec.yml ./src    # Use custom spec file
+  aigraph-scanner -s ~/my-spec.yml ./src      # Use custom spec file
+  aigraph-scanner --no-codeql .               # Skip CodeQL, regex only
   aigraph-scanner -f json .                   # Output as JSON
-  aigraph-scanner --use-codeql .              # Use CodeQL for deeper analysis
   aigraph-scanner --ignore-dir test .         # Ignore test directories
   aigraph-scanner --no-notebooks .            # Skip Jupyter notebooks
 `);
@@ -15012,13 +15160,13 @@ Examples:
 function parseArgs(args) {
     const result = {
         target: '.',
-        specFile: '.aigraph-spec.yml',
+        specFile: undefined,
         outputFormat: 'text',
         quiet: false,
         failOnViolation: true,
         showHelp: false,
         showVersion: false,
-        useCodeQL: false,
+        disableCodeQL: false,
         scanNotebooks: true,
         scanIaC: true,
         includeComments: false,
@@ -15042,8 +15190,8 @@ function parseArgs(args) {
         else if (arg === '--no-fail') {
             result.failOnViolation = false;
         }
-        else if (arg === '--use-codeql') {
-            result.useCodeQL = true;
+        else if (arg === '--no-codeql') {
+            result.disableCodeQL = true;
         }
         else if (arg === '--no-notebooks') {
             result.scanNotebooks = false;
@@ -15133,7 +15281,7 @@ async function main() {
             specFile: options.specFile,
             outputFormat: options.outputFormat,
             failOnViolation: options.failOnViolation,
-            useCodeQL: options.useCodeQL,
+            disableCodeQL: options.disableCodeQL,
             scanNotebooks: options.scanNotebooks,
             scanIaC: options.scanIaC,
             includeComments: options.includeComments,

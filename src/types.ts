@@ -93,6 +93,21 @@ export interface ScanResults {
   detections: Detection[];
   violations: Violation[];
   summary: ScanSummary;
+  /** Results from regex-only scanning */
+  regexResults?: ScanMethodResults;
+  /** Results from CodeQL scanning (if available) */
+  codeqlResults?: ScanMethodResults;
+}
+
+/**
+ * Results from a specific scanning method
+ */
+export interface ScanMethodResults {
+  method: 'regex' | 'codeql';
+  available: boolean;
+  detections: Detection[];
+  duration: number; // milliseconds
+  error?: string;
 }
 
 export interface ScanSummary {

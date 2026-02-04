@@ -1,13 +1,17 @@
 /**
  * AIGraph Scanner - Core Module
  * 
- * This module provides the core scanning functionality that can be used
- * independently of the GitHub Action context. Use this for CLI or library usage.
+ * This module provides the core scanning functionality for the CLI tool.
  * 
  * Enhanced with CodeQL integration, Jupyter notebook support,
  * Infrastructure as Code scanning, and configurable ignore patterns.
+ * 
+ * Both regex and CodeQL scanning are run by default (when CodeQL is available).
  */
 
+import * as fs from 'fs';
+import * as path from 'path';
+import * as os from 'os';
 import { FileScanner, FileScannerOptions } from './scanners';
 import { PolicyEnforcer } from './policy';
 import { formatResults } from './formatter';
@@ -15,12 +19,42 @@ import { parseGitHubRepo, cloneGitHubRepo, isGitHubRepoRef, CloneResult } from '
 import { ScannerConfig, ScanResults, IgnoreConfig } from './types';
 
 /**
+ * Default spec file locations to check (in order of priority)
+ */
+const SPEC_FILE_LOCATIONS = [
+  '.aigraph-spec.yml',
+  '.aigraph-spec.yaml',
+  path.join(os.homedir(), '.aigraph-spec.yml'),
+  path.join(os.homedir(), '.aigraph-spec.yaml'),
+  path.join(os.homedir(), '.config', 'aigraph', 'spec.yml'),
+  '/etc/aigraph/spec.yml',
+  '/etc/aigraph/spec.yaml',
+];
+
+/**
+ * Find the spec file by checking default locations
+ */
+export function findSpecFile(basePath: string = '.'): string | undefined {
+  // Check local paths relative to basePath first
+  for (const location of SPEC_FILE_LOCATIONS) {
+    const fullPath = location.startsWith('/') || location.startsWith(os.homedir())
+      ? location
+      : path.join(basePath, location);
+    
+    if (fs.existsSync(fullPath)) {
+      return fullPath;
+    }
+  }
+  return undefined;
+}
+
+/**
  * Options for running the scanner
  */
 export interface ScanOptions {
   /** Path to scan or GitHub repo reference (e.g., 'owner/repo' or 'owner/repo@branch') */
   target: string;
-  /** Path to the spec file (default: '.aigraph-spec.yml') */
+  /** Path to the spec file (auto-detected if not provided) */
   specFile?: string;
   /** Output format (default: 'text') */
   outputFormat?: 'json' | 'markdown' | 'text';
@@ -28,8 +62,8 @@ export interface ScanOptions {
   failOnViolation?: boolean;
   /** Optional logging function */
   log?: (message: string) => void;
-  /** Whether to use CodeQL for AST-based analysis */
-  useCodeQL?: boolean;
+  /** Whether to disable CodeQL analysis (default: false - CodeQL runs if available) */
+  disableCodeQL?: boolean;
   /** Whether to scan Jupyter notebooks (default: true) */
   scanNotebooks?: boolean;
   /** Whether to scan IaC files (default: true) */
@@ -67,7 +101,7 @@ export interface ScanOutput {
  * ```typescript
  * import { scan } from 'aigraph-scanner';
  * 
- * // Scan a local directory
+ * // Scan a local directory (uses both regex and CodeQL if available)
  * const result = await scan({ target: './my-project' });
  * console.log(result.formattedOutput);
  * 
@@ -75,8 +109,8 @@ export interface ScanOutput {
  * const result = await scan({ target: 'owner/repo@main' });
  * console.log(result.results.violations);
  * 
- * // Use CodeQL for deeper analysis
- * const result = await scan({ target: '.', useCodeQL: true });
+ * // Disable CodeQL (regex only)
+ * const result = await scan({ target: '.', disableCodeQL: true });
  * 
  * // Ignore test directories
  * const result = await scan({ target: '.', ignoreDirs: ['test', '__tests__'] });
@@ -85,10 +119,10 @@ export interface ScanOutput {
 export async function scan(options: ScanOptions): Promise<ScanOutput> {
   const {
     target,
-    specFile = '.aigraph-spec.yml',
+    specFile,
     outputFormat = 'text',
     log = function noop() {},
-    useCodeQL = false,
+    disableCodeQL = false,
     scanNotebooks = true,
     scanIaC = true,
     includeComments = false,
@@ -115,11 +149,17 @@ export async function scan(options: ScanOptions): Promise<ScanOutput> {
       log(`📁 Scan path: ${scanPath}`);
     }
 
-    log(`📋 Spec file: ${specFile}`);
+    // Find spec file (auto-detect if not provided)
+    const resolvedSpecFile = specFile || findSpecFile(scanPath);
+    if (resolvedSpecFile) {
+      log(`📋 Spec file: ${resolvedSpecFile}`);
+    } else {
+      log('📋 No spec file found, using defaults');
+    }
 
     // Load policy spec
     log('📜 Loading policy spec...');
-    const spec = await PolicyEnforcer.loadSpec(specFile);
+    const spec = await PolicyEnforcer.loadSpec(resolvedSpecFile);
     const enforcer = new PolicyEnforcer(spec);
 
     // Build ignore config
@@ -129,7 +169,8 @@ export async function scan(options: ScanOptions): Promise<ScanOutput> {
       patterns: spec.ignore?.patterns || [],
     };
 
-    // Build scanner options
+    // Build scanner options - CodeQL runs by default unless disabled
+    const useCodeQL = !disableCodeQL;
     const scannerOptions: FileScannerOptions = {
       useCodeQL,
       scanNotebooks,
@@ -141,8 +182,11 @@ export async function scan(options: ScanOptions): Promise<ScanOutput> {
 
     // Scan files
     log('🔎 Scanning files for AI components...');
+    log('  Running regex pattern matching...');
     if (useCodeQL) {
-      log('  Using CodeQL for AST-based analysis...');
+      log('  Running CodeQL AST analysis (if available)...');
+    } else {
+      log('  CodeQL disabled, using regex only');
     }
     if (scanNotebooks) {
       log('  Including Jupyter notebooks...');

@@ -4,13 +4,78 @@
  * Formats scan results for various output formats.
  */
 
-import { ScanResults, Violation, Detection, DetectionCategory } from './types';
+import { ScanResults, Violation, Detection, DetectionCategory, ScanMethodResults } from './types';
 
 /**
  * Format scan results as JSON
  */
 export function formatAsJson(results: ScanResults): string {
   return JSON.stringify(results, null, 2);
+}
+
+/**
+ * Format method comparison summary
+ */
+function formatMethodComparison(results: ScanResults): string[] {
+  const lines: string[] = [];
+  
+  if (!results.regexResults && !results.codeqlResults) {
+    return lines;
+  }
+
+  lines.push('┌─────────────────────────────────────────────────────────────────────────────┐');
+  lines.push('│ SCANNING METHOD COMPARISON                                                  │');
+  lines.push('├──────────────────────────┬───────────────┬───────────────┬─────────────────┤');
+  lines.push('│ Method                   │ Status        │ Detections    │ Duration        │');
+  lines.push('├──────────────────────────┼───────────────┼───────────────┼─────────────────┤');
+  
+  if (results.regexResults) {
+    const r = results.regexResults;
+    const status = r.available ? '✅ Available' : '❌ Failed';
+    const count = String(r.detections.length);
+    const duration = `${r.duration}ms`;
+    lines.push(`│ ${padRight('Regex Pattern Matching', 24)} │ ${padRight(status, 13)} │ ${padRight(count, 13)} │ ${padRight(duration, 15)} │`);
+  }
+  
+  if (results.codeqlResults) {
+    const c = results.codeqlResults;
+    let status: string;
+    if (c.available) {
+      status = '✅ Available';
+    } else if (c.error?.includes('not found') || c.error?.includes('not available')) {
+      status = '⚠️ Not installed';
+    } else {
+      status = '❌ Failed';
+    }
+    const count = String(c.detections.length);
+    const duration = c.duration > 0 ? `${c.duration}ms` : '-';
+    lines.push(`│ ${padRight('CodeQL AST Analysis', 24)} │ ${padRight(status, 13)} │ ${padRight(count, 13)} │ ${padRight(duration, 15)} │`);
+  }
+  
+  lines.push('└──────────────────────────┴───────────────┴───────────────┴─────────────────┘');
+  
+  // Show CodeQL-only detections if any
+  if (results.codeqlResults?.available && results.regexResults) {
+    const regexNames = new Set(results.regexResults.detections.map(d => `${d.name}:${d.file}:${d.line}`));
+    const codeqlOnly = results.codeqlResults.detections.filter(
+      d => !regexNames.has(`${d.name}:${d.file}:${d.line}`)
+    );
+    
+    if (codeqlOnly.length > 0) {
+      lines.push('');
+      lines.push(`│ ℹ️  CodeQL found ${codeqlOnly.length} additional detection(s) not found by regex`);
+    }
+  }
+  
+  // Show if CodeQL is not installed
+  if (results.codeqlResults && !results.codeqlResults.available) {
+    lines.push('');
+    lines.push('│ 💡 Install CodeQL for deeper AST-based analysis: https://codeql.github.com/');
+  }
+  
+  lines.push('');
+  
+  return lines;
 }
 
 /**
@@ -111,6 +176,9 @@ export function formatAsText(results: ScanResults): string {
   lines.push('║                           AIGraph Scan Results                              ║');
   lines.push('╚══════════════════════════════════════════════════════════════════════════════╝');
   lines.push('');
+
+  // Method Comparison (at the top)
+  lines.push(...formatMethodComparison(results));
 
   // Summary Table
   lines.push('┌─────────────────────────────────────────────────────────────────────────────┐');

@@ -1,20 +1,25 @@
 /**
  * AIGraph Scanner - Core Module
  *
- * This module provides the core scanning functionality that can be used
- * independently of the GitHub Action context. Use this for CLI or library usage.
+ * This module provides the core scanning functionality for the CLI tool.
  *
  * Enhanced with CodeQL integration, Jupyter notebook support,
  * Infrastructure as Code scanning, and configurable ignore patterns.
+ *
+ * Both regex and CodeQL scanning are run by default (when CodeQL is available).
  */
 import { ScanResults } from './types';
+/**
+ * Find the spec file by checking default locations
+ */
+export declare function findSpecFile(basePath?: string): string | undefined;
 /**
  * Options for running the scanner
  */
 export interface ScanOptions {
     /** Path to scan or GitHub repo reference (e.g., 'owner/repo' or 'owner/repo@branch') */
     target: string;
-    /** Path to the spec file (default: '.aigraph-spec.yml') */
+    /** Path to the spec file (auto-detected if not provided) */
     specFile?: string;
     /** Output format (default: 'text') */
     outputFormat?: 'json' | 'markdown' | 'text';
@@ -22,8 +27,8 @@ export interface ScanOptions {
     failOnViolation?: boolean;
     /** Optional logging function */
     log?: (message: string) => void;
-    /** Whether to use CodeQL for AST-based analysis */
-    useCodeQL?: boolean;
+    /** Whether to disable CodeQL analysis (default: false - CodeQL runs if available) */
+    disableCodeQL?: boolean;
     /** Whether to scan Jupyter notebooks (default: true) */
     scanNotebooks?: boolean;
     /** Whether to scan IaC files (default: true) */
@@ -59,7 +64,7 @@ export interface ScanOutput {
  * ```typescript
  * import { scan } from 'aigraph-scanner';
  *
- * // Scan a local directory
+ * // Scan a local directory (uses both regex and CodeQL if available)
  * const result = await scan({ target: './my-project' });
  * console.log(result.formattedOutput);
  *
@@ -67,8 +72,8 @@ export interface ScanOutput {
  * const result = await scan({ target: 'owner/repo@main' });
  * console.log(result.results.violations);
  *
- * // Use CodeQL for deeper analysis
- * const result = await scan({ target: '.', useCodeQL: true });
+ * // Disable CodeQL (regex only)
+ * const result = await scan({ target: '.', disableCodeQL: true });
  *
  * // Ignore test directories
  * const result = await scan({ target: '.', ignoreDirs: ['test', '__tests__'] });

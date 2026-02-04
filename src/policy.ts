@@ -35,9 +35,13 @@ export class PolicyEnforcer {
   }
 
   /**
-   * Load spec from a file
+   * Load spec from a file. If specPath is undefined, returns default spec.
    */
-  static async loadSpec(specPath: string): Promise<AIGraphSpec> {
+  static async loadSpec(specPath: string | undefined): Promise<AIGraphSpec> {
+    if (!specPath) {
+      return DEFAULT_SPEC;
+    }
+
     const absolutePath = path.resolve(specPath);
     
     try {

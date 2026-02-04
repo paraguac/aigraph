@@ -9,7 +9,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import fg from 'fast-glob';
-import { Detection, DetectionPattern, ScanResults, ScanSummary, DetectionCategory, DetectionContext, IgnoreConfig } from '../types';
+import { Detection, DetectionPattern, ScanResults, ScanSummary, DetectionCategory, DetectionContext, IgnoreConfig, ScanMethodResults } from '../types';
 import { ALL_PATTERNS } from '../patterns';
 import { CodeQLScanner, CodeQLScanOptions } from './codeql-scanner';
 import { JupyterScanner } from './jupyter-scanner';
@@ -342,30 +342,53 @@ export class FileScanner {
   }
 
   /**
-   * Scan all files in the scan path, optionally using CodeQL
+   * Scan all files in the scan path using both regex and CodeQL methods
+   * Always attempts both methods and reports comparison
    */
   async scan(): Promise<ScanResults> {
     const files = await this.getFilesToScan();
     let allDetections: Detection[] = [];
+    
+    // Track results from each method
+    const regexResults: ScanMethodResults = {
+      method: 'regex',
+      available: true,
+      detections: [],
+      duration: 0,
+    };
+    
+    const codeqlResults: ScanMethodResults = {
+      method: 'codeql',
+      available: false,
+      detections: [],
+      duration: 0,
+    };
 
-    // Try CodeQL first if enabled
-    if (this.options.useCodeQL) {
-      try {
-        const codeqlScanner = new CodeQLScanner({ scanPath: this.scanPath });
-        const codeqlDetections = await codeqlScanner.scan();
-        if (codeqlDetections.length > 0) {
-          console.log(`  CodeQL found ${codeqlDetections.length} detections`);
-          allDetections.push(...codeqlDetections);
-        }
-      } catch (error) {
-        console.warn(`CodeQL scan failed, falling back to regex: ${(error as Error).message}`);
-      }
-    }
-
-    // Regex-based scanning (runs alongside or as fallback)
+    // Run regex-based scanning
+    const regexStart = Date.now();
     for (const file of files) {
       const fileDetections = await this.scanFile(file);
-      allDetections.push(...fileDetections);
+      regexResults.detections.push(...fileDetections);
+    }
+    regexResults.duration = Date.now() - regexStart;
+    allDetections.push(...regexResults.detections);
+
+    // Always try CodeQL (if available)
+    const codeqlStart = Date.now();
+    try {
+      const codeqlScanner = new CodeQLScanner({ scanPath: this.scanPath });
+      const codeqlDetections = await codeqlScanner.scan();
+      codeqlResults.available = true;
+      codeqlResults.detections = codeqlDetections;
+      codeqlResults.duration = Date.now() - codeqlStart;
+      
+      if (codeqlDetections.length > 0) {
+        allDetections.push(...codeqlDetections);
+      }
+    } catch (error) {
+      codeqlResults.duration = Date.now() - codeqlStart;
+      codeqlResults.error = (error as Error).message;
+      // CodeQL not available or failed - that's okay, we have regex results
     }
 
     // Deduplicate detections (same name, file, and line)
@@ -377,6 +400,8 @@ export class FileScanner {
       detections: uniqueDetections,
       violations: [], // Violations are determined by policy enforcement
       summary,
+      regexResults,
+      codeqlResults,
     };
   }
 

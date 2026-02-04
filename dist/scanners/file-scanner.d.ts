@@ -54,7 +54,8 @@ export declare class FileScanner {
      */
     private getSnippet;
     /**
-     * Scan all files in the scan path, optionally using CodeQL
+     * Scan all files in the scan path using both regex and CodeQL methods
+     * Always attempts both methods and reports comparison
      */
     scan(): Promise<ScanResults>;
     /**
