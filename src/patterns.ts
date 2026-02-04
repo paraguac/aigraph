@@ -226,6 +226,22 @@ export const FRAMEWORK_PATTERNS: DetectionPattern[] = [
     confidence: 'high',
     metadata: { type: 'sdk', provider: 'anthropic' }
   },
+  // Anthropic Claude Agent SDK (for building AI agents)
+  {
+    category: 'framework',
+    name: 'claude-agent-sdk',
+    patterns: [
+      /import\s+.*\s+from\s+['"`]@anthropic-ai\/claude-agent-sdk['"`]/gi,
+      /require\s*\(\s*['"`]@anthropic-ai\/claude-agent-sdk['"`]\s*\)/gi,
+      /['"`]@anthropic-ai\/claude-agent-sdk['"`]/gi,
+      /unstable_v2_createSession/gi,
+      /unstable_v2_resumeSession/gi,
+      /unstable_v2_prompt/gi,
+    ],
+    filePatterns: ['*.js', '*.ts', '*.jsx', '*.tsx', 'package.json'],
+    confidence: 'high',
+    metadata: { type: 'agent-sdk', provider: 'anthropic' }
+  },
   // Vercel AI SDK
   {
     category: 'framework',
@@ -282,6 +298,21 @@ export const FRAMEWORK_PATTERNS: DetectionPattern[] = [
     ],
     confidence: 'high',
     metadata: { type: 'observability' }
+  },
+  // AI GitHub Actions (for CI/CD AI integrations)
+  {
+    category: 'framework',
+    name: 'ai-github-action',
+    patterns: [
+      /anthropics\/claude-code-action/gi,
+      /openai\/openai-github-action/gi,
+      /github\/copilot-/gi,
+      /uses:\s*['"\`]?anthropics\//gi,
+      /uses:\s*['"\`]?openai\//gi,
+    ],
+    filePatterns: ['.github/workflows/*.yml', '.github/workflows/*.yaml'],
+    confidence: 'high',
+    metadata: { type: 'github-action', provider: 'various' }
   },
   // Google Vertex AI Agent Builder / Generative AI
   {
