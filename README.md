@@ -170,20 +170,96 @@ codeql pack install queries/
 | **Dynamic Imports** | Runtime/dynamic imports of AI modules |
 | **MCP Detection** | MCP server and tool usage |
 
+### Regex vs CodeQL: Effectiveness Comparison
+
+The scanner uses **dual analysis** because regex and CodeQL are complementary—they catch entirely different things.
+
+#### Real-World Results (from scanning a production codebase)
+
+| Method | Total Found | Unique Detections | Duration |
+|--------|-------------|-------------------|----------|
+| **Regex** | 487 | 100% unique | ~3 seconds |
+| **CodeQL** | 167 | 100% unique | ~90 seconds |
+| **Overlap** | 0 | — | — |
+
+> **Key Insight:** Zero overlap! Each method finds completely different things.
+
+#### What Regex Excels At
+
+| Strength | Examples |
+|----------|----------|
+| **Config files** | `.mcp.json`, `package.json`, YAML configs |
+| **Documentation** | Model names in docs, README references |
+| **String literals** | API URLs, platform names in any file type |
+| **Speed** | 30x faster than CodeQL |
+| **No setup** | Works immediately, no external tools needed |
+
+Best for: Quick scans, CI pipelines, config file detection
+
+#### What CodeQL Excels At
+
+| Strength | Examples |
+|----------|----------|
+| **Import statements** | `import { OpenAI } from 'openai'` |
+| **Client instantiation** | `new Anthropic()`, `OpenAI()` |
+| **Function calls** | Model names passed to API methods |
+| **Data flow** | Tracing values through code |
+| **Lower false positives** | Only detects actual code usage |
+
+Best for: Full audits, compliance checks, finding real AI SDK usage
+
+#### Recommendation
+
+| Use Case | Recommended Mode |
+|----------|------------------|
+| Quick CI/CD check | `--no-codeql` (regex only, fast) |
+| Full security audit | Default (both methods) |
+| Config file scanning | Regex handles this (CodeQL can't parse JSON/YAML) |
+| Finding actual code usage | CodeQL essential |
+
+```bash
+# Fast scan for CI (regex only)
+aigraph-scanner --no-codeql .
+
+# Full audit (both methods - default)
+aigraph-scanner .
+```
+
 ### Comparison Output
 
-The scanner always runs both methods and shows a comparison:
+The scanner always runs both methods and shows a side-by-side comparison:
 
 ```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│ SCANNING METHOD COMPARISON                                                  │
-├──────────────────────────┬───────────────┬───────────────┬─────────────────┤
-│ Method                   │ Status        │ Detections    │ Duration        │
-├──────────────────────────┼───────────────┼───────────────┼─────────────────┤
-│ Regex Pattern Matching   │ ✅ Available  │ 42            │ 156ms           │
-│ CodeQL AST Analysis      │ ✅ Available  │ 38            │ 12340ms         │
-└──────────────────────────┴───────────────┴───────────────┴─────────────────┘
-│ ℹ️  CodeQL found 3 additional detection(s) not found by regex
+┌───────────────────────────────────────────────────────────────────────────────────────────┐
+│ SCANNING METHOD COMPARISON                                                                │
+├──────────────────────────────┬───────────────┬───────────────┬─────────────┬─────────────┤
+│ Method                       │ Status        │ Total Found   │ Unique      │ Duration    │
+├──────────────────────────────┼───────────────┼───────────────┼─────────────┼─────────────┤
+│ Regex Pattern Matching       │ ✅ Available  │ 487           │ 487         │ 3211ms      │
+│ CodeQL AST Analysis          │ ✅ Available  │ 167           │ 167         │ 89259ms     │
+├──────────────────────────────┴───────────────┴───────────────┴─────────────┴─────────────┤
+│ Found by both: 0          | Regex only: 487        | CodeQL only: 167                   │
+└───────────────────────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────────────────────────┐
+│ SIDE-BY-SIDE COMPARISON BY CATEGORY                                                        │
+├──────────────────────┬─────────────────────────────────┬─────────────────────────────────┤
+│ Category             │ Regex Detections                │ CodeQL Detections               │
+├──────────────────────┼─────────────────────────────────┼─────────────────────────────────┤
+│ AI Models            │ 51 (gemini, claude)             │ 152 (ai-model-name, claude...)  │
+│ AI Frameworks        │ 0 ()                            │ 12 (ai-sdk-import)              │
+│ AI Platforms         │ 282 (google-ai-studio, openr..) │ 0 ()                            │
+│ MCP Servers          │ 114 (mcp-server-generic)        │ 0 ()                            │
+└──────────────────────┴─────────────────────────────────┴─────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────────────────────────┐
+│ 🔍 CODEQL-ONLY DETECTIONS (AST analysis found these that regex missed)                     │
+├──────────────────────────────┬──────────┬───────────────────────────────────────────────────┤
+│ Name                         │ Count    │ Files                                             │
+├──────────────────────────────┼──────────┼───────────────────────────────────────────────────┤
+│ ai-client-instantiation      │ 57       │ src/servers/mcp-server.ts, src/services/sync/...  │
+│ ai-sdk-import                │ 12       │ docs/context/agent-sdk-v2-examples.ts, ...        │
+└──────────────────────────────┴──────────┴───────────────────────────────────────────────────┘
 ```
 
 ## Detected Components

@@ -11,35 +11,34 @@
  */
 
 import python
-import semmle.python.dataflow.new.DataFlow
-import semmle.python.ApiGraphs
 
 /**
  * AI module names that might be dynamically imported
  */
-predicate isAiModuleName(string name) {
-  name = "openai" or
-  name = "anthropic" or
-  name = "langchain" or
-  name = "langgraph" or
-  name = "langsmith" or
-  name = "transformers" or
-  name = "huggingface_hub" or
-  name = "google.generativeai" or
-  name = "vertexai" or
-  name = "cohere" or
-  name = "replicate" or
-  name = "together" or
-  name = "groq" or
-  name = "llama_index" or
-  name = "autogen" or
-  name = "crewai" or
-  name = "dspy" or
-  name = "instructor" or
-  name = "mcp" or
-  name = "ollama" or
-  name = "torch" or
-  name = "tensorflow"
+bindingset[moduleName]
+predicate isAiModuleName(string moduleName) {
+  moduleName = "openai" or
+  moduleName = "anthropic" or
+  moduleName = "langchain" or
+  moduleName = "langgraph" or
+  moduleName = "langsmith" or
+  moduleName = "transformers" or
+  moduleName = "huggingface_hub" or
+  moduleName = "google.generativeai" or
+  moduleName = "vertexai" or
+  moduleName = "cohere" or
+  moduleName = "replicate" or
+  moduleName = "together" or
+  moduleName = "groq" or
+  moduleName = "llama_index" or
+  moduleName = "autogen" or
+  moduleName = "crewai" or
+  moduleName = "dspy" or
+  moduleName = "instructor" or
+  moduleName = "mcp" or
+  moduleName = "ollama" or
+  moduleName = "torch" or
+  moduleName = "tensorflow"
 }
 
 // Detect importlib.import_module calls with AI module names

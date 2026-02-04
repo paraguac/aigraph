@@ -13,40 +13,24 @@
 import javascript
 
 /**
- * AI module names that might be dynamically imported
+ * Detect dynamic imports of AI modules
  */
-predicate isAiModuleName(string name) {
-  name = "openai" or
-  name = "@anthropic-ai/sdk" or
-  name = "langchain" or
-  name.matches("@langchain/%") or
-  name = "@google/generative-ai" or
-  name = "@huggingface/inference" or
-  name = "cohere-ai" or
-  name = "replicate" or
-  name = "together-ai" or
-  name = "groq-sdk" or
-  name = "@modelcontextprotocol/sdk" or
-  name = "ollama" or
-  name = "ai" or
-  name.matches("@ai-sdk/%")
-}
-
-// Detect dynamic imports: import('module')
-from DynamicImportExpr dynImport, string moduleName
+from DynamicImportExpr dynImport, StringLiteral source
 where
-  moduleName = dynImport.getSource().(StringLiteral).getValue() and
-  isAiModuleName(moduleName)
-select dynImport, "Dynamic import of AI module detected: " + moduleName
-
-// Detect require with variable (potential dynamic require)
-from CallExpr call, VarAccess varAccess
-where
-  call.getCalleeName() = "require" and
-  varAccess = call.getArgument(0) and
-  // This is a heuristic - we flag requires with variables as potentially dynamic
-  exists(string comment | 
-    comment = call.getParent().getAChild().toString() and
-    (comment.matches("%openai%") or comment.matches("%anthropic%") or comment.matches("%langchain%"))
+  source = dynImport.getSource() and
+  (
+    source.getValue() = "openai" or
+    source.getValue() = "@anthropic-ai/sdk" or
+    source.getValue() = "langchain" or
+    source.getValue().matches("@langchain/%") or
+    source.getValue() = "@google/generative-ai" or
+    source.getValue() = "@huggingface/inference" or
+    source.getValue() = "cohere-ai" or
+    source.getValue() = "replicate" or
+    source.getValue() = "groq-sdk" or
+    source.getValue() = "@modelcontextprotocol/sdk" or
+    source.getValue() = "ollama" or
+    source.getValue() = "ai" or
+    source.getValue().matches("@ai-sdk/%")
   )
-select call, "Potentially dynamic AI module require detected"
+select dynImport, "Dynamic import of AI module detected: " + source.getValue()

@@ -13232,21 +13232,23 @@ class CodeQLScanner {
         }
     }
     /**
-     * Install CodeQL pack dependencies
+     * Install CodeQL pack dependencies for all detected languages
      */
     async installPackDependencies() {
         const queryPack = this.options.queryPack || this.getDefaultQueryPackPath();
-        // Check if qlpack.yml exists
-        const qlpackPath = path.join(queryPack, 'qlpack.yml');
-        if (!fs.existsSync(qlpackPath)) {
-            return; // No pack to install
-        }
-        try {
-            await this.runCodeQL(['pack', 'install', queryPack], 'Installing CodeQL pack dependencies');
-        }
-        catch (error) {
-            console.warn(`  Warning: Could not install pack dependencies: ${error.message}`);
-            // Continue anyway - might work if dependencies are already cached
+        const languages = this.options.languages || await this.detectLanguages();
+        // Install dependencies for each language-specific pack
+        for (const lang of languages) {
+            const langPack = path.join(queryPack, lang);
+            const qlpackPath = path.join(langPack, 'qlpack.yml');
+            if (fs.existsSync(qlpackPath)) {
+                try {
+                    await this.runCodeQL(['pack', 'install', langPack], `Installing ${lang} pack dependencies`);
+                }
+                catch (error) {
+                    console.warn(`  Warning: Could not install ${lang} pack dependencies: ${error.message}`);
+                }
+            }
         }
     }
     /**
@@ -13323,17 +13325,19 @@ class CodeQLScanner {
         if (languages.length > 1) {
             return this.runQueriesOnCluster(queryPack, resultsPath, languages);
         }
+        // Use language-specific query pack for single language
+        const langQueryPack = this.getLanguageQueryPackPath(languages[0], queryPack);
         const args = [
             'database', 'analyze',
             this.databasePath,
-            queryPack,
+            langQueryPack,
             '--format=sarifv2.1.0',
             `--output=${resultsPath}`,
         ];
         if (this.options.threads) {
             args.push(`--threads=${this.options.threads}`);
         }
-        await this.runCodeQL(args, 'Running CodeQL queries');
+        await this.runCodeQL(args, `Running CodeQL queries for ${languages[0]}`);
         // Read and parse SARIF results
         const sarifContent = await fs.promises.readFile(resultsPath, 'utf-8');
         return JSON.parse(sarifContent);
@@ -13355,10 +13359,12 @@ class CodeQLScanner {
                 console.warn(`  Database for ${lang} not found, skipping...`);
                 continue;
             }
+            // Use language-specific query pack
+            const langQueryPack = this.getLanguageQueryPackPath(lang, queryPack);
             const args = [
                 'database', 'analyze',
                 langDbPath,
-                queryPack,
+                langQueryPack,
                 '--format=sarifv2.1.0',
                 `--output=${langResultsPath}`,
             ];
@@ -13379,27 +13385,40 @@ class CodeQLScanner {
         return allResults;
     }
     /**
-     * Get the path to the default AIGraph query pack
+     * Get the path to language-specific query pack
+     */
+    getLanguageQueryPackPath(language, baseQueryPack) {
+        // Check for language-specific subdirectory
+        const langPath = path.join(baseQueryPack, language);
+        if (fs.existsSync(path.join(langPath, 'qlpack.yml'))) {
+            return langPath;
+        }
+        // Fall back to base pack (may fail if multi-language)
+        return baseQueryPack;
+    }
+    /**
+     * Get the path to the default AIGraph query pack (parent directory containing language subdirs)
      */
     getDefaultQueryPackPath() {
         // Check for query pack in various locations
+        // Now we look for the parent directory that contains javascript/ and python/ subdirs
         const possiblePaths = [
             // New location: queries/ at project root
             path.join(__dirname, '../../queries'),
             path.join(__dirname, '../../../queries'),
             path.join(process.cwd(), 'queries'),
-            // Legacy location: codeql/aigraph-queries/
-            path.join(__dirname, '../../codeql/aigraph-queries'),
-            path.join(__dirname, '../../../codeql/aigraph-queries'),
-            path.join(process.cwd(), 'codeql/aigraph-queries'),
         ];
         for (const p of possiblePaths) {
-            if (fs.existsSync(path.join(p, 'qlpack.yml'))) {
+            // Check if this directory has language-specific subdirectories with qlpack.yml
+            const jsPackPath = path.join(p, 'javascript', 'qlpack.yml');
+            const pyPackPath = path.join(p, 'python', 'qlpack.yml');
+            if (fs.existsSync(jsPackPath) || fs.existsSync(pyPackPath)) {
                 return p;
             }
         }
-        // Fall back to installed query pack
-        return 'aigraph/ai-detection-queries';
+        // No local packs found - this will cause an error but at least it's informative
+        console.warn('  Warning: No local query packs found in queries/ directory');
+        return path.join(process.cwd(), 'queries');
     }
     /**
      * Run a CodeQL command
@@ -13413,10 +13432,23 @@ class CodeQLScanner {
                 stdio: ['pipe', 'pipe', 'pipe'],
             });
             let stderr = '';
+            // Show progress output for long-running commands
+            childProcess.stdout?.on('data', (data) => {
+                const output = data.toString().trim();
+                if (output && (output.includes('Extracting') || output.includes('Analyzing') || output.includes('%'))) {
+                    process.stdout.write(`\r    ${output.slice(0, 70).padEnd(70)}`);
+                }
+            });
             childProcess.stderr?.on('data', (data) => {
                 stderr += data.toString();
+                // Show progress for database creation
+                const output = data.toString().trim();
+                if (output && (output.includes('Extracting') || output.includes('Finalizing'))) {
+                    process.stdout.write(`\r    ${output.slice(0, 70).padEnd(70)}`);
+                }
             });
             childProcess.on('close', (code) => {
+                process.stdout.write('\r' + ' '.repeat(74) + '\r'); // Clear progress line
                 if (code === 0) {
                     resolve();
                 }
@@ -13895,22 +13927,24 @@ class FileScanner {
         }
         regexResults.duration = Date.now() - regexStart;
         allDetections.push(...regexResults.detections);
-        // Always try CodeQL (if available)
-        const codeqlStart = Date.now();
-        try {
-            const codeqlScanner = new codeql_scanner_1.CodeQLScanner({ scanPath: this.scanPath });
-            const codeqlDetections = await codeqlScanner.scan();
-            codeqlResults.available = true;
-            codeqlResults.detections = codeqlDetections;
-            codeqlResults.duration = Date.now() - codeqlStart;
-            if (codeqlDetections.length > 0) {
-                allDetections.push(...codeqlDetections);
+        // Run CodeQL scanning if enabled
+        if (this.options.useCodeQL !== false) {
+            const codeqlStart = Date.now();
+            try {
+                const codeqlScanner = new codeql_scanner_1.CodeQLScanner({ scanPath: this.scanPath });
+                const codeqlDetections = await codeqlScanner.scan();
+                codeqlResults.available = true;
+                codeqlResults.detections = codeqlDetections;
+                codeqlResults.duration = Date.now() - codeqlStart;
+                if (codeqlDetections.length > 0) {
+                    allDetections.push(...codeqlDetections);
+                }
             }
-        }
-        catch (error) {
-            codeqlResults.duration = Date.now() - codeqlStart;
-            codeqlResults.error = error.message;
-            // CodeQL not available or failed - that's okay, we have regex results
+            catch (error) {
+                codeqlResults.duration = Date.now() - codeqlStart;
+                codeqlResults.error = error.message;
+                // CodeQL not available or failed - that's okay, we have regex results
+            }
         }
         // Deduplicate detections (same name, file, and line)
         const uniqueDetections = this.deduplicateDetections(allDetections);

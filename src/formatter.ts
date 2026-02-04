@@ -1,7 +1,7 @@
 /**
  * AIGraph Scanner - Output Formatter
  * 
- * Formats scan results for various output formats.
+ * Formats scan results for various output formats with side-by-side comparison.
  */
 
 import { ScanResults, Violation, Detection, DetectionCategory, ScanMethodResults } from './types';
@@ -14,6 +14,64 @@ export function formatAsJson(results: ScanResults): string {
 }
 
 /**
+ * Group detections by name and aggregate counts
+ */
+function aggregateDetections(detections: Detection[]): Map<string, { count: number; files: string[]; confidence: string }> {
+  const uniqueNames = new Map<string, { count: number; files: string[]; confidence: string }>();
+  for (const d of detections) {
+    const existing = uniqueNames.get(d.name);
+    if (existing) {
+      existing.count++;
+      if (!existing.files.includes(d.file)) {
+        existing.files.push(d.file);
+      }
+    } else {
+      uniqueNames.set(d.name, { count: 1, files: [d.file], confidence: d.confidence });
+    }
+  }
+  return uniqueNames;
+}
+
+/**
+ * Get detections unique to CodeQL (not found by regex)
+ */
+function getCodeQLOnlyDetections(results: ScanResults): Detection[] {
+  if (!results.codeqlResults?.available || !results.regexResults) {
+    return [];
+  }
+  const regexSet = new Set(results.regexResults.detections.map(d => `${d.name}:${d.file}:${d.line}`));
+  return results.codeqlResults.detections.filter(
+    d => !regexSet.has(`${d.name}:${d.file}:${d.line}`)
+  );
+}
+
+/**
+ * Get detections unique to Regex (not found by CodeQL)
+ */
+function getRegexOnlyDetections(results: ScanResults): Detection[] {
+  if (!results.codeqlResults?.available || !results.regexResults) {
+    return results.regexResults?.detections || [];
+  }
+  const codeqlSet = new Set(results.codeqlResults.detections.map(d => `${d.name}:${d.file}:${d.line}`));
+  return results.regexResults.detections.filter(
+    d => !codeqlSet.has(`${d.name}:${d.file}:${d.line}`)
+  );
+}
+
+/**
+ * Get common detections (found by both methods)
+ */
+function getCommonDetections(results: ScanResults): Detection[] {
+  if (!results.codeqlResults?.available || !results.regexResults) {
+    return [];
+  }
+  const codeqlSet = new Set(results.codeqlResults.detections.map(d => `${d.name}:${d.file}:${d.line}`));
+  return results.regexResults.detections.filter(
+    d => codeqlSet.has(`${d.name}:${d.file}:${d.line}`)
+  );
+}
+
+/**
  * Format method comparison summary
  */
 function formatMethodComparison(results: ScanResults): string[] {
@@ -23,18 +81,23 @@ function formatMethodComparison(results: ScanResults): string[] {
     return lines;
   }
 
-  lines.push('┌─────────────────────────────────────────────────────────────────────────────┐');
-  lines.push('│ SCANNING METHOD COMPARISON                                                  │');
-  lines.push('├──────────────────────────┬───────────────┬───────────────┬─────────────────┤');
-  lines.push('│ Method                   │ Status        │ Detections    │ Duration        │');
-  lines.push('├──────────────────────────┼───────────────┼───────────────┼─────────────────┤');
+  lines.push('┌───────────────────────────────────────────────────────────────────────────────────────────┐');
+  lines.push('│ SCANNING METHOD COMPARISON                                                                │');
+  lines.push('├──────────────────────────────┬───────────────┬───────────────┬─────────────┬─────────────┤');
+  lines.push('│ Method                       │ Status        │ Total Found   │ Unique      │ Duration    │');
+  lines.push('├──────────────────────────────┼───────────────┼───────────────┼─────────────┼─────────────┤');
+  
+  const regexOnly = getRegexOnlyDetections(results);
+  const codeqlOnly = getCodeQLOnlyDetections(results);
+  const common = getCommonDetections(results);
   
   if (results.regexResults) {
     const r = results.regexResults;
     const status = r.available ? '✅ Available' : '❌ Failed';
     const count = String(r.detections.length);
+    const unique = String(regexOnly.length);
     const duration = `${r.duration}ms`;
-    lines.push(`│ ${padRight('Regex Pattern Matching', 24)} │ ${padRight(status, 13)} │ ${padRight(count, 13)} │ ${padRight(duration, 15)} │`);
+    lines.push(`│ ${padRight('Regex Pattern Matching', 28)} │ ${padRight(status, 13)} │ ${padRight(count, 13)} │ ${padRight(unique, 11)} │ ${padRight(duration, 11)} │`);
   }
   
   if (results.codeqlResults) {
@@ -43,37 +106,138 @@ function formatMethodComparison(results: ScanResults): string[] {
     if (c.available) {
       status = '✅ Available';
     } else if (c.error?.includes('not found') || c.error?.includes('not available')) {
-      status = '⚠️ Not installed';
+      status = '⚠️ Skipped';
     } else {
       status = '❌ Failed';
     }
-    const count = String(c.detections.length);
+    const count = c.available ? String(c.detections.length) : '-';
+    const unique = c.available ? String(codeqlOnly.length) : '-';
     const duration = c.duration > 0 ? `${c.duration}ms` : '-';
-    lines.push(`│ ${padRight('CodeQL AST Analysis', 24)} │ ${padRight(status, 13)} │ ${padRight(count, 13)} │ ${padRight(duration, 15)} │`);
+    lines.push(`│ ${padRight('CodeQL AST Analysis', 28)} │ ${padRight(status, 13)} │ ${padRight(count, 13)} │ ${padRight(unique, 11)} │ ${padRight(duration, 11)} │`);
   }
   
-  lines.push('└──────────────────────────┴───────────────┴───────────────┴─────────────────┘');
+  lines.push('├──────────────────────────────┴───────────────┴───────────────┴─────────────┴─────────────┤');
   
-  // Show CodeQL-only detections if any
+  // Show overlap info
   if (results.codeqlResults?.available && results.regexResults) {
-    const regexNames = new Set(results.regexResults.detections.map(d => `${d.name}:${d.file}:${d.line}`));
-    const codeqlOnly = results.codeqlResults.detections.filter(
-      d => !regexNames.has(`${d.name}:${d.file}:${d.line}`)
-    );
-    
-    if (codeqlOnly.length > 0) {
-      lines.push('');
-      lines.push(`│ ℹ️  CodeQL found ${codeqlOnly.length} additional detection(s) not found by regex`);
-    }
+    lines.push(`│ Found by both: ${padRight(String(common.length), 10)} | Regex only: ${padRight(String(regexOnly.length), 10)} | CodeQL only: ${padRight(String(codeqlOnly.length), 18)} │`);
   }
+  
+  lines.push('└───────────────────────────────────────────────────────────────────────────────────────────┘');
   
   // Show if CodeQL is not installed
   if (results.codeqlResults && !results.codeqlResults.available) {
     lines.push('');
-    lines.push('│ 💡 Install CodeQL for deeper AST-based analysis: https://codeql.github.com/');
+    lines.push('💡 Install CodeQL for deeper AST-based analysis: https://codeql.github.com/');
   }
   
   lines.push('');
+  
+  return lines;
+}
+
+/**
+ * Format side-by-side detection comparison table
+ */
+function formatSideBySideDetections(results: ScanResults): string[] {
+  const lines: string[] = [];
+  
+  if (!results.regexResults || !results.codeqlResults?.available) {
+    return lines;
+  }
+
+  lines.push('┌─────────────────────────────────────────────────────────────────────────────────────────────┐');
+  lines.push('│ SIDE-BY-SIDE COMPARISON BY CATEGORY                                                        │');
+  lines.push('├──────────────────────┬─────────────────────────────────┬─────────────────────────────────┤');
+  lines.push('│ Category             │ Regex Detections                │ CodeQL Detections               │');
+  lines.push('├──────────────────────┼─────────────────────────────────┼─────────────────────────────────┤');
+
+  const regexByCategory = groupByCategory(results.regexResults.detections);
+  const codeqlByCategory = groupByCategory(results.codeqlResults.detections);
+
+  const categoryLabels: Record<DetectionCategory, string> = {
+    'model': 'AI Models',
+    'framework': 'AI Frameworks',
+    'platform': 'AI Platforms',
+    'mcp-server': 'MCP Servers',
+    'mcp-tool': 'MCP Tools',
+    'api-endpoint': 'API Endpoints',
+    'infrastructure': 'Infrastructure',
+  };
+
+  for (const [cat, label] of Object.entries(categoryLabels)) {
+    const regexCount = regexByCategory[cat as DetectionCategory]?.length || 0;
+    const codeqlCount = codeqlByCategory[cat as DetectionCategory]?.length || 0;
+    
+    if (regexCount > 0 || codeqlCount > 0) {
+      const regexNames = aggregateDetections(regexByCategory[cat as DetectionCategory] || []);
+      const codeqlNames = aggregateDetections(codeqlByCategory[cat as DetectionCategory] || []);
+      
+      const regexSummary = Array.from(regexNames.keys()).slice(0, 2).join(', ') + (regexNames.size > 2 ? '...' : '');
+      const codeqlSummary = Array.from(codeqlNames.keys()).slice(0, 2).join(', ') + (codeqlNames.size > 2 ? '...' : '');
+      
+      lines.push(`│ ${padRight(label, 20)} │ ${padRight(`${regexCount} (${regexSummary})`, 31)} │ ${padRight(`${codeqlCount} (${codeqlSummary})`, 31)} │`);
+    }
+  }
+  
+  lines.push('└──────────────────────┴─────────────────────────────────┴─────────────────────────────────┘');
+  lines.push('');
+  
+  return lines;
+}
+
+/**
+ * Format unique findings from each method
+ */
+function formatUniqueFindings(results: ScanResults): string[] {
+  const lines: string[] = [];
+  
+  if (!results.regexResults || !results.codeqlResults?.available) {
+    return lines;
+  }
+
+  const regexOnly = getRegexOnlyDetections(results);
+  const codeqlOnly = getCodeQLOnlyDetections(results);
+  
+  // CodeQL-only findings
+  if (codeqlOnly.length > 0) {
+    lines.push('┌─────────────────────────────────────────────────────────────────────────────────────────────┐');
+    lines.push('│ 🔍 CODEQL-ONLY DETECTIONS (AST analysis found these that regex missed)                      │');
+    lines.push('├──────────────────────────────┬──────────┬───────────────────────────────────────────────────┤');
+    lines.push('│ Name                         │ Count    │ Files                                             │');
+    lines.push('├──────────────────────────────┼──────────┼───────────────────────────────────────────────────┤');
+    
+    const aggregated = aggregateDetections(codeqlOnly);
+    for (const [name, info] of Array.from(aggregated.entries()).slice(0, 10)) {
+      const fileList = info.files.slice(0, 2).join(', ') + (info.files.length > 2 ? '...' : '');
+      lines.push(`│ ${padRight(name, 28)} │ ${padRight(String(info.count), 8)} │ ${padRight(fileList, 49)} │`);
+    }
+    if (aggregated.size > 10) {
+      lines.push(`│ ${padRight('... and ' + (aggregated.size - 10) + ' more', 28)} │ ${padRight('', 8)} │ ${padRight('', 49)} │`);
+    }
+    lines.push('└──────────────────────────────┴──────────┴───────────────────────────────────────────────────┘');
+    lines.push('');
+  }
+  
+  // Regex-only findings (if CodeQL is available but didn't find these)
+  if (regexOnly.length > 0 && results.codeqlResults.available) {
+    lines.push('┌─────────────────────────────────────────────────────────────────────────────────────────────┐');
+    lines.push('│ 📝 REGEX-ONLY DETECTIONS (pattern matching found these, CodeQL may have missed)            │');
+    lines.push('├──────────────────────────────┬──────────┬───────────────────────────────────────────────────┤');
+    lines.push('│ Name                         │ Count    │ Files                                             │');
+    lines.push('├──────────────────────────────┼──────────┼───────────────────────────────────────────────────┤');
+    
+    const aggregated = aggregateDetections(regexOnly);
+    for (const [name, info] of Array.from(aggregated.entries()).slice(0, 10)) {
+      const fileList = info.files.slice(0, 2).join(', ') + (info.files.length > 2 ? '...' : '');
+      lines.push(`│ ${padRight(name, 28)} │ ${padRight(String(info.count), 8)} │ ${padRight(fileList, 49)} │`);
+    }
+    if (aggregated.size > 10) {
+      lines.push(`│ ${padRight('... and ' + (aggregated.size - 10) + ' more', 28)} │ ${padRight('', 8)} │ ${padRight('', 49)} │`);
+    }
+    lines.push('└──────────────────────────────┴──────────┴───────────────────────────────────────────────────┘');
+    lines.push('');
+  }
   
   return lines;
 }
@@ -86,20 +250,45 @@ export function formatAsMarkdown(results: ScanResults): string {
 
   lines.push('# AIGraph Scan Results\n');
 
-  // Summary
-  lines.push('## Summary\n');
-  lines.push(`| Metric | Count |`);
-  lines.push(`|--------|-------|`);
-  lines.push(`| Files Scanned | ${results.summary.filesScanned} |`);
-  lines.push(`| Total Detections | ${results.summary.totalDetections} |`);
-  lines.push(`| Total Violations | ${results.summary.totalViolations} |`);
-  lines.push('');
+  // Method Comparison
+  if (results.regexResults || results.codeqlResults) {
+    lines.push('## Scanning Methods Comparison\n');
+    
+    const regexOnly = getRegexOnlyDetections(results);
+    const codeqlOnly = getCodeQLOnlyDetections(results);
+    const common = getCommonDetections(results);
+    
+    lines.push('| Method | Status | Total Found | Unique | Duration |');
+    lines.push('|--------|--------|-------------|--------|----------|');
+    
+    if (results.regexResults) {
+      const status = results.regexResults.available ? '✅ Available' : '❌ Failed';
+      lines.push(`| Regex Pattern Matching | ${status} | ${results.regexResults.detections.length} | ${regexOnly.length} | ${results.regexResults.duration}ms |`);
+    }
+    
+    if (results.codeqlResults) {
+      const status = results.codeqlResults.available ? '✅ Available' : '⚠️ Skipped';
+      const count = results.codeqlResults.available ? results.codeqlResults.detections.length : '-';
+      const unique = results.codeqlResults.available ? codeqlOnly.length : '-';
+      const duration = results.codeqlResults.duration > 0 ? `${results.codeqlResults.duration}ms` : '-';
+      lines.push(`| CodeQL AST Analysis | ${status} | ${count} | ${unique} | ${duration} |`);
+    }
+    
+    if (results.codeqlResults?.available) {
+      lines.push('');
+      lines.push(`**Overlap:** ${common.length} detections found by both methods`);
+    }
+    lines.push('');
+  }
 
-  // Detections by category
-  if (results.summary.totalDetections > 0) {
-    lines.push('### Detections by Category\n');
-    lines.push(`| Category | Count |`);
-    lines.push(`|----------|-------|`);
+  // Side-by-side by category
+  if (results.regexResults && results.codeqlResults?.available) {
+    lines.push('### Detections by Category (Side-by-Side)\n');
+    lines.push('| Category | Regex | CodeQL |');
+    lines.push('|----------|-------|--------|');
+    
+    const regexByCategory = groupByCategory(results.regexResults.detections);
+    const codeqlByCategory = groupByCategory(results.codeqlResults.detections);
     
     const categoryLabels: Record<DetectionCategory, string> = {
       'model': 'AI Models',
@@ -111,14 +300,24 @@ export function formatAsMarkdown(results: ScanResults): string {
       'infrastructure': 'Infrastructure',
     };
 
-    for (const [category, label] of Object.entries(categoryLabels)) {
-      const count = results.summary.detectionsByCategory[category as DetectionCategory];
-      if (count > 0) {
-        lines.push(`| ${label} | ${count} |`);
+    for (const [cat, label] of Object.entries(categoryLabels)) {
+      const regexCount = regexByCategory[cat as DetectionCategory]?.length || 0;
+      const codeqlCount = codeqlByCategory[cat as DetectionCategory]?.length || 0;
+      if (regexCount > 0 || codeqlCount > 0) {
+        lines.push(`| ${label} | ${regexCount} | ${codeqlCount} |`);
       }
     }
     lines.push('');
   }
+
+  // Summary
+  lines.push('## Summary\n');
+  lines.push(`| Metric | Count |`);
+  lines.push(`|--------|-------|`);
+  lines.push(`| Files Scanned | ${results.summary.filesScanned} |`);
+  lines.push(`| Total Detections (Combined) | ${results.summary.totalDetections} |`);
+  lines.push(`| Total Violations | ${results.summary.totalViolations} |`);
+  lines.push('');
 
   // Violations
   if (results.violations.length > 0) {
@@ -142,11 +341,42 @@ export function formatAsMarkdown(results: ScanResults): string {
     lines.push('All detected AI components comply with the configured policies.\n');
   }
 
+  // Unique findings sections
+  if (results.codeqlResults?.available && results.regexResults) {
+    const codeqlOnly = getCodeQLOnlyDetections(results);
+    const regexOnly = getRegexOnlyDetections(results);
+    
+    if (codeqlOnly.length > 0) {
+      lines.push('## 🔍 CodeQL-Only Detections\n');
+      lines.push('*These were found by AST analysis but not by regex patterns:*\n');
+      lines.push('| Name | Count | Files |');
+      lines.push('|------|-------|-------|');
+      const aggregated = aggregateDetections(codeqlOnly);
+      for (const [name, info] of Array.from(aggregated.entries()).slice(0, 15)) {
+        const fileList = info.files.slice(0, 2).join(', ') + (info.files.length > 2 ? '...' : '');
+        lines.push(`| ${name} | ${info.count} | ${fileList} |`);
+      }
+      lines.push('');
+    }
+    
+    if (regexOnly.length > 0) {
+      lines.push('## 📝 Regex-Only Detections\n');
+      lines.push('*These were found by pattern matching:*\n');
+      lines.push('| Name | Count | Files |');
+      lines.push('|------|-------|-------|');
+      const aggregated = aggregateDetections(regexOnly);
+      for (const [name, info] of Array.from(aggregated.entries()).slice(0, 15)) {
+        const fileList = info.files.slice(0, 2).join(', ') + (info.files.length > 2 ? '...' : '');
+        lines.push(`| ${name} | ${info.count} | ${fileList} |`);
+      }
+      lines.push('');
+    }
+  }
+
   // All Detections
   if (results.detections.length > 0) {
-    lines.push('## All Detections\n');
+    lines.push('## All Detections (Combined)\n');
     
-    // Group by category
     const byCategory = groupByCategory(results.detections);
     
     for (const [category, detections] of Object.entries(byCategory)) {
@@ -156,8 +386,11 @@ export function formatAsMarkdown(results: ScanResults): string {
       lines.push(`| Name | File | Line | Confidence |`);
       lines.push(`|------|------|------|------------|`);
       
-      for (const detection of detections) {
+      for (const detection of detections.slice(0, 20)) {
         lines.push(`| ${detection.name} | \`${detection.file}\` | ${detection.line} | ${detection.confidence} |`);
+      }
+      if (detections.length > 20) {
+        lines.push(`| *... and ${detections.length - 20} more* | | | |`);
       }
       lines.push('');
     }
@@ -172,99 +405,84 @@ export function formatAsMarkdown(results: ScanResults): string {
 export function formatAsText(results: ScanResults): string {
   const lines: string[] = [];
 
-  lines.push('╔══════════════════════════════════════════════════════════════════════════════╗');
-  lines.push('║                           AIGraph Scan Results                              ║');
-  lines.push('╚══════════════════════════════════════════════════════════════════════════════╝');
+  lines.push('╔═══════════════════════════════════════════════════════════════════════════════════════════╗');
+  lines.push('║                              AIGraph Scan Results                                         ║');
+  lines.push('╚═══════════════════════════════════════════════════════════════════════════════════════════╝');
   lines.push('');
 
   // Method Comparison (at the top)
   lines.push(...formatMethodComparison(results));
 
-  // Summary Table
-  lines.push('┌─────────────────────────────────────────────────────────────────────────────┐');
-  lines.push('│ SUMMARY                                                                     │');
-  lines.push('├──────────────────────────┬────────────────────────────────────────────────┤');
-  lines.push(`│ Files Scanned            │ ${padRight(String(results.summary.filesScanned), 46)} │`);
-  lines.push(`│ Total Detections         │ ${padRight(String(results.summary.totalDetections), 46)} │`);
-  lines.push(`│ Total Violations         │ ${padRight(String(results.summary.totalViolations), 46)} │`);
-  lines.push('└──────────────────────────┴────────────────────────────────────────────────┘');
-  lines.push('');
+  // Side-by-side comparison
+  lines.push(...formatSideBySideDetections(results));
 
-  // Detections by Category Table
-  if (results.summary.totalDetections > 0) {
-    lines.push('┌─────────────────────────────────────────────────────────────────────────────┐');
-    lines.push('│ DETECTIONS BY CATEGORY                                                      │');
-    lines.push('├──────────────────────────┬────────────────────────────────────────────────┤');
-    for (const [cat, count] of Object.entries(results.summary.detectionsByCategory)) {
-      if (count > 0) {
-        lines.push(`│ ${padRight(formatCategory(cat as DetectionCategory), 24)} │ ${padRight(String(count), 46)} │`);
-      }
-    }
-    lines.push('└──────────────────────────┴────────────────────────────────────────────────┘');
-    lines.push('');
-  }
+  // Summary Table
+  lines.push('┌─────────────────────────────────────────────────────────────────────────────────────────────┐');
+  lines.push('│ SUMMARY                                                                                     │');
+  lines.push('├──────────────────────────────┬────────────────────────────────────────────────────────────┤');
+  lines.push(`│ Files Scanned                │ ${padRight(String(results.summary.filesScanned), 58)} │`);
+  lines.push(`│ Total Detections (Combined)  │ ${padRight(String(results.summary.totalDetections), 58)} │`);
+  lines.push(`│ Total Violations             │ ${padRight(String(results.summary.totalViolations), 58)} │`);
+  lines.push('└──────────────────────────────┴────────────────────────────────────────────────────────────┘');
+  lines.push('');
 
   // Violations Table
   if (results.violations.length > 0) {
-    lines.push('┌─────────────────────────────────────────────────────────────────────────────┐');
-    lines.push('│ ⚠️  POLICY VIOLATIONS                                                        │');
-    lines.push('├────┬────────────────────┬──────────────────┬────────────────────┬──────────┤');
-    lines.push('│ #  │ Name               │ Category         │ File               │ Line     │');
-    lines.push('├────┼────────────────────┼──────────────────┼────────────────────┼──────────┤');
+    lines.push('┌─────────────────────────────────────────────────────────────────────────────────────────────┐');
+    lines.push('│ ⚠️  POLICY VIOLATIONS                                                                        │');
+    lines.push('├────┬────────────────────────┬──────────────────┬──────────────────────────┬────────────────┤');
+    lines.push('│ #  │ Name                   │ Category         │ File                     │ Line           │');
+    lines.push('├────┼────────────────────────┼──────────────────┼──────────────────────────┼────────────────┤');
     
     for (let i = 0; i < results.violations.length; i++) {
       const v = results.violations[i];
       const num = padRight(String(i + 1), 2);
-      const name = truncateAndPad(v.detection.name, 18);
+      const name = truncateAndPad(v.detection.name, 22);
       const cat = truncateAndPad(formatCategory(v.detection.category), 16);
-      const file = truncateAndPad(v.detection.file, 18);
-      const line = padRight(String(v.detection.line), 8);
+      const file = truncateAndPad(v.detection.file, 24);
+      const line = padRight(String(v.detection.line), 14);
       lines.push(`│ ${num} │ ${name} │ ${cat} │ ${file} │ ${line} │`);
     }
-    lines.push('└────┴────────────────────┴──────────────────┴────────────────────┴──────────┘');
+    lines.push('└────┴────────────────────────┴──────────────────┴──────────────────────────┴────────────────┘');
     lines.push('');
   } else {
-    lines.push('┌─────────────────────────────────────────────────────────────────────────────┐');
-    lines.push('│ ✅ No policy violations found                                               │');
-    lines.push('└─────────────────────────────────────────────────────────────────────────────┘');
+    lines.push('┌─────────────────────────────────────────────────────────────────────────────────────────────┐');
+    lines.push('│ ✅ No policy violations found                                                               │');
+    lines.push('└─────────────────────────────────────────────────────────────────────────────────────────────┘');
     lines.push('');
   }
 
+  // Unique findings
+  lines.push(...formatUniqueFindings(results));
+
   // All Detections Table (grouped by category)
   if (results.detections.length > 0) {
+    lines.push('┌─────────────────────────────────────────────────────────────────────────────────────────────┐');
+    lines.push('│ ALL DETECTIONS (COMBINED)                                                                   │');
+    lines.push('└─────────────────────────────────────────────────────────────────────────────────────────────┘');
+    lines.push('');
+    
     const byCategory = groupByCategory(results.detections);
     
     for (const [category, detections] of Object.entries(byCategory)) {
       if (detections.length === 0) continue;
       
-      // Deduplicate by name for cleaner output
-      const uniqueNames = new Map<string, { count: number; files: string[]; confidence: string }>();
-      for (const d of detections) {
-        const existing = uniqueNames.get(d.name);
-        if (existing) {
-          existing.count++;
-          if (!existing.files.includes(d.file)) {
-            existing.files.push(d.file);
-          }
-        } else {
-          uniqueNames.set(d.name, { count: 1, files: [d.file], confidence: d.confidence });
-        }
-      }
+      const uniqueNames = aggregateDetections(detections);
       
-      lines.push(`┌─────────────────────────────────────────────────────────────────────────────┐`);
-      lines.push(`│ ${padRight(formatCategory(category as DetectionCategory).toUpperCase() + 'S', 75)} │`);
-      lines.push('├──────────────────────────────┬──────────┬────────────┬─────────────────────┤');
-      lines.push('│ Name                         │ Count    │ Confidence │ Files               │');
-      lines.push('├──────────────────────────────┼──────────┼────────────┼─────────────────────┤');
+      lines.push('┌─────────────────────────────────────────────────────────────────────────────────────────────┐');
+      lines.push(`│ ${padRight(formatCategory(category as DetectionCategory).toUpperCase() + 'S', 87)} │`);
+      lines.push('├──────────────────────────────────┬──────────┬────────────┬───────────────────────────────┤');
+      lines.push('│ Name                             │ Count    │ Confidence │ Files                         │');
+      lines.push('├──────────────────────────────────┼──────────┼────────────┼───────────────────────────────┤');
       
       for (const [name, info] of uniqueNames) {
-        const nameCol = truncateAndPad(name, 28);
+        const nameCol = truncateAndPad(name, 32);
         const countCol = padRight(String(info.count), 8);
         const confCol = padRight(info.confidence, 10);
-        const filesCol = truncateAndPad(info.files.slice(0, 2).join(', ') + (info.files.length > 2 ? '...' : ''), 19);
+        const filesCol = truncateAndPad(info.files.slice(0, 2).join(', ') + (info.files.length > 2 ? '...' : ''), 29);
         lines.push(`│ ${nameCol} │ ${countCol} │ ${confCol} │ ${filesCol} │`);
       }
-      lines.push('└──────────────────────────────┴──────────┴────────────┴─────────────────────┘');
+      lines.push('└──────────────────────────────────┴──────────┴────────────┴───────────────────────────────┘');
       lines.push('');
     }
   }

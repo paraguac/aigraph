@@ -38,6 +38,7 @@ model = "gpt-4"
       const result = await scan({
         target: tempDir,
         outputFormat: 'json',
+        disableCodeQL: true, // Disable CodeQL for faster tests
       });
 
       expect(result.results).toBeDefined();
@@ -64,6 +65,7 @@ policies:
         target: tempDir,
         specFile: path.join(tempDir, '.aigraph-spec.yml'),
         outputFormat: 'text',
+        disableCodeQL: true,
       });
 
       expect(result.hasViolations).toBe(true);
@@ -79,16 +81,19 @@ model = "gpt-4"
       const jsonResult = await scan({
         target: tempDir,
         outputFormat: 'json',
+        disableCodeQL: true,
       });
       
       const textResult = await scan({
         target: tempDir,
         outputFormat: 'text',
+        disableCodeQL: true,
       });
       
       const markdownResult = await scan({
         target: tempDir,
         outputFormat: 'markdown',
+        disableCodeQL: true,
       });
 
       // JSON output should be valid JSON
@@ -109,6 +114,7 @@ model = "gpt-4"
       await scan({
         target: tempDir,
         log: (msg) => logMessages.push(msg),
+        disableCodeQL: true,
       });
 
       expect(logMessages.length).toBeGreaterThan(0);
@@ -132,6 +138,7 @@ policies:
       const result = await scan({
         target: tempDir,
         specFile: path.join(tempDir, '.aigraph-spec.yml'),
+        disableCodeQL: true,
       });
 
       expect(result.hasViolations).toBe(false);

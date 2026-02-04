@@ -15,89 +15,44 @@ import javascript
 /**
  * AI-related environment variable names
  */
-predicate isAiEnvVar(string name) {
+bindingset[envName]
+predicate isAiEnvVar(string envName) {
   // OpenAI
-  name = "OPENAI_API_KEY" or
-  name = "OPENAI_ORG_ID" or
-  name = "OPENAI_API_BASE" or
+  envName = "OPENAI_API_KEY" or
+  envName = "OPENAI_ORG_ID" or
+  envName = "OPENAI_API_BASE" or
   // Anthropic
-  name = "ANTHROPIC_API_KEY" or
-  name = "CLAUDE_API_KEY" or
+  envName = "ANTHROPIC_API_KEY" or
+  envName = "CLAUDE_API_KEY" or
   // Google AI
-  name = "GOOGLE_API_KEY" or
-  name = "GOOGLE_APPLICATION_CREDENTIALS" or
+  envName = "GOOGLE_API_KEY" or
   // Azure
-  name = "AZURE_OPENAI_API_KEY" or
-  name = "AZURE_OPENAI_ENDPOINT" or
-  name = "AZURE_OPENAI_API_VERSION" or
+  envName = "AZURE_OPENAI_API_KEY" or
+  envName = "AZURE_OPENAI_ENDPOINT" or
   // Hugging Face
-  name = "HUGGINGFACE_API_KEY" or
-  name = "HF_TOKEN" or
+  envName = "HUGGINGFACE_API_KEY" or
+  envName = "HF_TOKEN" or
   // Cohere
-  name = "COHERE_API_KEY" or
-  name = "CO_API_KEY" or
+  envName = "COHERE_API_KEY" or
   // Replicate
-  name = "REPLICATE_API_TOKEN" or
+  envName = "REPLICATE_API_TOKEN" or
   // Together AI
-  name = "TOGETHER_API_KEY" or
+  envName = "TOGETHER_API_KEY" or
   // Groq
-  name = "GROQ_API_KEY" or
-  // Fireworks
-  name = "FIREWORKS_API_KEY" or
-  // Perplexity
-  name = "PERPLEXITY_API_KEY" or
-  name = "PPLX_API_KEY" or
-  // OpenRouter
-  name = "OPENROUTER_API_KEY" or
+  envName = "GROQ_API_KEY" or
   // Mistral
-  name = "MISTRAL_API_KEY" or
+  envName = "MISTRAL_API_KEY" or
   // LangChain/LangSmith
-  name = "LANGCHAIN_API_KEY" or
-  name = "LANGSMITH_API_KEY" or
-  name = "LANGCHAIN_TRACING_V2" or
+  envName = "LANGCHAIN_API_KEY" or
+  envName = "LANGSMITH_API_KEY" or
   // Ollama
-  name = "OLLAMA_HOST" or
-  name = "OLLAMA_BASE_URL"
-}
-
-/**
- * Get the AI provider from env var name
- */
-string getEnvVarProvider(string name) {
-  (name.matches("OPENAI%") and result = "openai") or
-  (name.matches("ANTHROPIC%") or name.matches("CLAUDE%") and result = "anthropic") or
-  (name.matches("GOOGLE%") and result = "google") or
-  (name.matches("AZURE%") and result = "azure") or
-  (name.matches("HUGGING%") or name.matches("HF_%") and result = "huggingface") or
-  (name.matches("COHERE%") or name.matches("CO_%") and result = "cohere") or
-  (name.matches("REPLICATE%") and result = "replicate") or
-  (name.matches("TOGETHER%") and result = "together") or
-  (name.matches("GROQ%") and result = "groq") or
-  (name.matches("FIREWORKS%") and result = "fireworks") or
-  (name.matches("PERPLEXITY%") or name.matches("PPLX%") and result = "perplexity") or
-  (name.matches("OPENROUTER%") and result = "openrouter") or
-  (name.matches("MISTRAL%") and result = "mistral") or
-  (name.matches("LANGCHAIN%") or name.matches("LANGSMITH%") and result = "langchain") or
-  (name.matches("OLLAMA%") and result = "ollama") or
-  (not (name.matches("OPENAI%") or name.matches("ANTHROPIC%")) and result = "other")
+  envName = "OLLAMA_HOST"
 }
 
 // Detect process.env.VAR_NAME access
-from PropAccess access, string envVarName, string provider
+from PropAccess access
 where
   access.getBase().(PropAccess).getPropertyName() = "env" and
   access.getBase().(PropAccess).getBase().(Identifier).getName() = "process" and
-  envVarName = access.getPropertyName() and
-  isAiEnvVar(envVarName) and
-  provider = getEnvVarProvider(envVarName)
-select access, "AI environment variable usage: process.env." + envVarName + " (provider: " + provider + ")"
-
-// Detect process.env["VAR_NAME"] access
-from IndexExpr access, string envVarName, string provider
-where
-  access.getBase().(PropAccess).getPropertyName() = "env" and
-  access.getBase().(PropAccess).getBase().(Identifier).getName() = "process" and
-  envVarName = access.getIndex().(StringLiteral).getValue() and
-  isAiEnvVar(envVarName) and
-  provider = getEnvVarProvider(envVarName)
-select access, "AI environment variable usage: process.env[\"" + envVarName + "\"] (provider: " + provider + ")"
+  isAiEnvVar(access.getPropertyName())
+select access, "AI environment variable usage: process.env." + access.getPropertyName()

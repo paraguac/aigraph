@@ -373,22 +373,24 @@ export class FileScanner {
     regexResults.duration = Date.now() - regexStart;
     allDetections.push(...regexResults.detections);
 
-    // Always try CodeQL (if available)
-    const codeqlStart = Date.now();
-    try {
-      const codeqlScanner = new CodeQLScanner({ scanPath: this.scanPath });
-      const codeqlDetections = await codeqlScanner.scan();
-      codeqlResults.available = true;
-      codeqlResults.detections = codeqlDetections;
-      codeqlResults.duration = Date.now() - codeqlStart;
-      
-      if (codeqlDetections.length > 0) {
-        allDetections.push(...codeqlDetections);
+    // Run CodeQL scanning if enabled
+    if (this.options.useCodeQL !== false) {
+      const codeqlStart = Date.now();
+      try {
+        const codeqlScanner = new CodeQLScanner({ scanPath: this.scanPath });
+        const codeqlDetections = await codeqlScanner.scan();
+        codeqlResults.available = true;
+        codeqlResults.detections = codeqlDetections;
+        codeqlResults.duration = Date.now() - codeqlStart;
+        
+        if (codeqlDetections.length > 0) {
+          allDetections.push(...codeqlDetections);
+        }
+      } catch (error) {
+        codeqlResults.duration = Date.now() - codeqlStart;
+        codeqlResults.error = (error as Error).message;
+        // CodeQL not available or failed - that's okay, we have regex results
       }
-    } catch (error) {
-      codeqlResults.duration = Date.now() - codeqlStart;
-      codeqlResults.error = (error as Error).message;
-      // CodeQL not available or failed - that's okay, we have regex results
     }
 
     // Deduplicate detections (same name, file, and line)

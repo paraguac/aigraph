@@ -5,11 +5,16 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
-import { FileScanner } from '../src/scanners/file-scanner';
+import { FileScanner, FileScannerOptions } from '../src/scanners/file-scanner';
 import { Detection } from '../src/types';
 
 describe('File Scanner', () => {
   let tempDir: string;
+  
+  // Default options to disable CodeQL for faster tests
+  const defaultOptions: FileScannerOptions = {
+    useCodeQL: false, // Disable CodeQL for unit tests
+  };
 
   beforeEach(async () => {
     // Create a temporary directory for test files
@@ -34,7 +39,7 @@ describe('File Scanner', () => {
       await createTestFile('app.py', 'print("hello")');
       await createTestFile('lib/utils.py', 'def helper(): pass');
       
-      const scanner = new FileScanner(tempDir);
+      const scanner = new FileScanner(tempDir, undefined, defaultOptions);
       const files = await scanner.getFilesToScan();
       
       expect(files.length).toBe(2);
@@ -47,7 +52,7 @@ describe('File Scanner', () => {
       await createTestFile('src/app.ts', 'const x = 1');
       await createTestFile('components/Button.tsx', 'export const Button = () => {}');
       
-      const scanner = new FileScanner(tempDir);
+      const scanner = new FileScanner(tempDir, undefined, defaultOptions);
       const files = await scanner.getFilesToScan();
       
       expect(files.length).toBe(3);
@@ -57,7 +62,7 @@ describe('File Scanner', () => {
       await createTestFile('index.js', 'console.log("hi")');
       await createTestFile('node_modules/lib/index.js', 'module.exports = {}');
       
-      const scanner = new FileScanner(tempDir);
+      const scanner = new FileScanner(tempDir, undefined, defaultOptions);
       const files = await scanner.getFilesToScan();
       
       expect(files.length).toBe(1);
@@ -74,7 +79,7 @@ from langchain.agents import initialize_agent
 llm = ChatOpenAI(model="gpt-4")
 `);
       
-      const scanner = new FileScanner(tempDir);
+      const scanner = new FileScanner(tempDir, undefined, defaultOptions);
       const results = await scanner.scan();
       
       expect(results.detections.length).toBeGreaterThan(0);
@@ -90,7 +95,7 @@ bedrock = boto3.client('bedrock-runtime')
 response = bedrock.invoke_model(modelId='amazon.titan-text-express')
 `);
       
-      const scanner = new FileScanner(tempDir);
+      const scanner = new FileScanner(tempDir, undefined, defaultOptions);
       const results = await scanner.scan();
       
       expect(results.detections.some((d: Detection) => d.name === 'aws-bedrock')).toBe(true);
@@ -105,7 +110,7 @@ client = AzureOpenAI(
 )
 `);
       
-      const scanner = new FileScanner(tempDir);
+      const scanner = new FileScanner(tempDir, undefined, defaultOptions);
       const results = await scanner.scan();
       
       expect(results.detections.some((d: Detection) => d.name === 'azure-openai')).toBe(true);
@@ -119,7 +124,7 @@ client = AzureOpenAI(
         }
       }, null, 2));
       
-      const scanner = new FileScanner(tempDir);
+      const scanner = new FileScanner(tempDir, undefined, defaultOptions);
       const results = await scanner.scan();
       
       expect(results.detections.some((d: Detection) => d.name === 'mcp-server-filesystem')).toBe(true);
@@ -135,7 +140,7 @@ from autogen import AssistantAgent, UserProxyAgent
 # Multi-agent setup
 `);
       
-      const scanner = new FileScanner(tempDir);
+      const scanner = new FileScanner(tempDir, undefined, defaultOptions);
       const results = await scanner.scan();
       
       expect(results.detections.some((d: Detection) => d.name === 'langchain')).toBe(true);
@@ -154,7 +159,7 @@ model = "gpt-4"
 import ollama
 `);
       
-      const scanner = new FileScanner(tempDir);
+      const scanner = new FileScanner(tempDir, undefined, defaultOptions);
       const results = await scanner.scan();
       
       expect(results.summary.filesScanned).toBe(2);
@@ -166,7 +171,7 @@ import ollama
 model = "gpt-4"
 `);
       
-      const scanner = new FileScanner(tempDir);
+      const scanner = new FileScanner(tempDir, undefined, defaultOptions);
       const results = await scanner.scan();
       
       const gpt4Detections = results.detections.filter((d: Detection) => 

@@ -52,7 +52,7 @@ export declare class CodeQLScanner {
      */
     scan(): Promise<Detection[]>;
     /**
-     * Install CodeQL pack dependencies
+     * Install CodeQL pack dependencies for all detected languages
      */
     private installPackDependencies;
     /**
@@ -72,7 +72,11 @@ export declare class CodeQLScanner {
      */
     private runQueriesOnCluster;
     /**
-     * Get the path to the default AIGraph query pack
+     * Get the path to language-specific query pack
+     */
+    private getLanguageQueryPackPath;
+    /**
+     * Get the path to the default AIGraph query pack (parent directory containing language subdirs)
      */
     private getDefaultQueryPackPath;
     /**
