@@ -6,3 +6,15 @@ coverage/
 !.env.example
 .DS_Store
 *.tgz
+
+# CodeQL CLI and libraries (download separately)
+codeql/
+codeql-*.zip
+!queries/
+
+# CodeQL generated files
+*.sarif
+*.bqrs
+
+# Temp directories
+.aigraph-temp/

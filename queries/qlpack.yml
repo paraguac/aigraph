@@ -3,9 +3,7 @@ version: 1.0.0
 description: CodeQL queries for detecting AI models, frameworks, MCP servers, and API endpoints
 suites: aigraph-suite.qls
 defaultSuiteFile: aigraph-suite.qls
+library: false
 dependencies:
   codeql/python-all: "*"
   codeql/javascript-all: "*"
-extractor: 
-  - python
-  - javascript

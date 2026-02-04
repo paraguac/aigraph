@@ -23,6 +23,8 @@ export interface CodeQLScanOptions {
     timeout?: number;
     /** Whether CodeQL is available (will be checked) */
     codeqlAvailable?: boolean;
+    /** Path to CodeQL CLI binary (default: 'codeql' in PATH) */
+    codeqlPath?: string;
 }
 /**
  * Result of CodeQL availability check
@@ -50,6 +52,10 @@ export declare class CodeQLScanner {
      */
     scan(): Promise<Detection[]>;
     /**
+     * Install CodeQL pack dependencies
+     */
+    private installPackDependencies;
+    /**
      * Detect languages in the scan path
      */
     private detectLanguages;
@@ -62,6 +68,10 @@ export declare class CodeQLScanner {
      */
     private runQueries;
     /**
+     * Run queries on a database cluster (multiple languages)
+     */
+    private runQueriesOnCluster;
+    /**
      * Get the path to the default AIGraph query pack
      */
     private getDefaultQueryPackPath;
@@ -70,7 +80,7 @@ export declare class CodeQLScanner {
      */
     private runCodeQL;
     /**
-     * Parse SARIF results into AIGraph detections
+     * Parse SARIF results into detections
      */
     private parseResults;
     /**
@@ -78,11 +88,15 @@ export declare class CodeQLScanner {
      */
     private createDetection;
     /**
-     * Parse rule ID and message to determine category and name
+     * Parse rule ID to extract category and name
      */
     private parseRuleId;
     /**
-     * Clean up temporary files
+     * Get confidence level from rule
+     */
+    private getConfidenceFromRule;
+    /**
+     * Cleanup temporary files
      */
     private cleanup;
 }

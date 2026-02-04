@@ -304,12 +304,24 @@ Arguments:
                  Default: . (current directory)
 
 Options:
-  -s, --spec <file>      Path to the spec file (default: .aigraph-spec.yml)
-  -f, --format <format>  Output format: json, markdown, text (default: text)
-  -q, --quiet            Suppress progress messages, only output results
-  --no-fail              Don't exit with error code on violations
-  -h, --help             Show this help message
-  -v, --version          Show version number
+  -s, --spec <file>        Path to the spec file (default: .aigraph-spec.yml)
+  -f, --format <format>    Output format: json, markdown, text (default: text)
+  -q, --quiet              Suppress progress messages, only output results
+  --no-fail                Don't exit with error code on violations
+  
+  Scanning Options:
+  --use-codeql             Use CodeQL for AST-based analysis (requires CodeQL CLI)
+  --no-notebooks           Skip scanning Jupyter notebooks (.ipynb files)
+  --no-iac                 Skip scanning Infrastructure as Code files
+  --include-comments       Include detections found in comments
+  --no-strings             Exclude detections found in string literals
+  
+  Ignore Options:
+  --ignore-dir <dir>       Additional directory to ignore (can be used multiple times)
+  --ignore-file <pattern>  Additional file pattern to ignore (can be used multiple times)
+  
+  -h, --help               Show this help message
+  -v, --version            Show version number
 ```
 
 ### CLI Examples
@@ -338,7 +350,80 @@ aigraph-scanner -q -f json .
 
 # Don't fail on violations (useful in CI where you just want a report)
 aigraph-scanner --no-fail ./src
+
+# Use CodeQL for deeper AST-based analysis
+aigraph-scanner --use-codeql .
+
+# Ignore test directories
+aigraph-scanner --ignore-dir tests --ignore-dir __tests__ .
+
+# Skip Jupyter notebooks and IaC files
+aigraph-scanner --no-notebooks --no-iac .
 ```
+
+## CodeQL Integration (Advanced)
+
+AIGraph Scanner can use [CodeQL](https://codeql.github.com/) for deeper AST-based semantic analysis. This provides more accurate detection by understanding code structure rather than just pattern matching.
+
+### Installing CodeQL CLI
+
+CodeQL is **not included** in this repository (it's ~1GB). To use CodeQL features:
+
+```bash
+# Download CodeQL CLI (Linux)
+wget https://github.com/github/codeql-cli-binaries/releases/latest/download/codeql-linux64.zip
+unzip codeql-linux64.zip
+export PATH="$PWD/codeql:$PATH"
+
+# Verify installation
+codeql --version
+
+# Install query pack dependencies
+cd /path/to/aigraph
+codeql pack install queries/
+```
+
+### Using CodeQL
+
+```bash
+# Run with CodeQL analysis
+aigraph-scanner --use-codeql .
+
+# The scanner will:
+# 1. Check if CodeQL CLI is available
+# 2. Create a CodeQL database from your source code
+# 3. Run the AIGraph queries
+# 4. Merge results with regex-based scanning
+```
+
+### What CodeQL Detects
+
+The CodeQL queries in `queries/` detect:
+
+| Query | Description |
+|-------|-------------|
+| **AI SDK Imports** | Import statements for AI libraries (OpenAI, Anthropic, LangChain, etc.) |
+| **Client Instantiation** | AI client object creation (`OpenAI()`, `Anthropic()`, etc.) |
+| **API Endpoints** | Direct HTTP calls to AI API endpoints |
+| **Model References** | Model name strings in code |
+| **Environment Variables** | AI-related environment variable access |
+| **Dynamic Imports** | Dynamic/runtime imports of AI modules |
+| **MCP Detection** | MCP server and tool usage |
+
+### Supported Languages
+
+- Python
+- JavaScript/TypeScript
+
+### When to Use CodeQL
+
+| Use Case | Regex Only | With CodeQL |
+|----------|------------|-------------|
+| Quick scans | ✅ Fast | ⚠️ Slower (builds database) |
+| Dynamic imports | ❌ Missed | ✅ Detected |
+| Complex patterns | ❌ Limited | ✅ AST-aware |
+| CI/CD pipelines | ✅ Recommended | ⚠️ Requires setup |
+| Deep audits | ⚠️ May miss | ✅ Recommended |
 
 ## Programmatic Usage
 

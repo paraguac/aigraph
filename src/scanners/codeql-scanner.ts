@@ -1,6 +1,6 @@
 /**
  * AIGraph Scanner - CodeQL Integration Module
- * 
+ *
  * This module provides integration with CodeQL for AST-based semantic analysis.
  * It can run CodeQL queries and parse results into the AIGraph detection format.
  */
@@ -85,6 +85,8 @@ export interface CodeQLScanOptions {
   timeout?: number;
   /** Whether CodeQL is available (will be checked) */
   codeqlAvailable?: boolean;
+  /** Path to CodeQL CLI binary (default: 'codeql' in PATH) */
+  codeqlPath?: string;
 }
 
 /**
@@ -120,23 +122,23 @@ export class CodeQLScanner {
    */
   static async checkAvailability(): Promise<CodeQLAvailability> {
     return new Promise((resolve) => {
-      const process = spawn('codeql', ['version'], {
-        shell: true,
+      const childProcess = spawn('codeql', ['version'], {
         timeout: 10000,
+        stdio: ['pipe', 'pipe', 'pipe'],
       });
 
       let stdout = '';
       let stderr = '';
 
-      process.stdout?.on('data', (data) => {
+      childProcess.stdout?.on('data', (data) => {
         stdout += data.toString();
       });
 
-      process.stderr?.on('data', (data) => {
+      childProcess.stderr?.on('data', (data) => {
         stderr += data.toString();
       });
 
-      process.on('close', (code) => {
+      childProcess.on('close', (code) => {
         if (code === 0) {
           const versionMatch = stdout.match(/CodeQL.*?(\d+\.\d+\.\d+)/i);
           resolve({
@@ -152,7 +154,7 @@ export class CodeQLScanner {
         }
       });
 
-      process.on('error', (err) => {
+      childProcess.on('error', (err) => {
         resolve({
           available: false,
           error: `CodeQL CLI not found: ${err.message}`,
@@ -184,6 +186,9 @@ export class CodeQLScanner {
         return [];
       }
 
+      // Install query pack dependencies
+      await this.installPackDependencies();
+
       // Create CodeQL database
       await this.createDatabase(languages);
 
@@ -199,15 +204,35 @@ export class CodeQLScanner {
   }
 
   /**
+   * Install CodeQL pack dependencies
+   */
+  private async installPackDependencies(): Promise<void> {
+    const queryPack = this.options.queryPack || this.getDefaultQueryPackPath();
+
+    // Check if qlpack.yml exists
+    const qlpackPath = path.join(queryPack, 'qlpack.yml');
+    if (!fs.existsSync(qlpackPath)) {
+      return; // No pack to install
+    }
+
+    try {
+      await this.runCodeQL(['pack', 'install', queryPack], 'Installing CodeQL pack dependencies');
+    } catch (error) {
+      console.warn(`  Warning: Could not install pack dependencies: ${(error as Error).message}`);
+      // Continue anyway - might work if dependencies are already cached
+    }
+  }
+
+  /**
    * Detect languages in the scan path
    */
   private async detectLanguages(): Promise<('python' | 'javascript')[]> {
     const languages: ('python' | 'javascript')[] = [];
-    
+
     const checkExtensions = async (dir: string): Promise<void> => {
       try {
         const entries = await fs.promises.readdir(dir, { withFileTypes: true });
-        
+
         for (const entry of entries) {
           if (entry.isDirectory()) {
             // Skip common non-source directories
@@ -224,7 +249,7 @@ export class CodeQLScanner {
               languages.push('javascript');
             }
           }
-          
+
           // Early exit if we found both
           if (languages.length >= 2) return;
         }
@@ -244,10 +269,17 @@ export class CodeQLScanner {
     const args = [
       'database', 'create',
       this.databasePath,
-      `--language=${languages.join(',')}`,
       `--source-root=${this.options.scanPath}`,
       '--overwrite',
     ];
+
+    // Handle multiple languages with --db-cluster
+    if (languages.length > 1) {
+      args.push('--db-cluster');
+      args.push(`--language=${languages.join(',')}`);
+    } else {
+      args.push(`--language=${languages[0]}`);
+    }
 
     if (this.options.threads) {
       args.push(`--threads=${this.options.threads}`);
@@ -266,6 +298,12 @@ export class CodeQLScanner {
   private async runQueries(): Promise<SarifResult> {
     const queryPack = this.options.queryPack || this.getDefaultQueryPackPath();
     const resultsPath = path.join(this.tempDir, 'results.sarif');
+    const languages = this.options.languages || await this.detectLanguages();
+
+    // If multiple languages, we have a database cluster
+    if (languages.length > 1) {
+      return this.runQueriesOnCluster(queryPack, resultsPath, languages);
+    }
 
     const args = [
       'database', 'analyze',
@@ -287,11 +325,67 @@ export class CodeQLScanner {
   }
 
   /**
+   * Run queries on a database cluster (multiple languages)
+   */
+  private async runQueriesOnCluster(
+    queryPack: string,
+    baseResultsPath: string,
+    languages: string[]
+  ): Promise<SarifResult> {
+    const allResults: SarifResult = {
+      $schema: 'https://raw.githubusercontent.com/oasis-tcs/sarif-spec/master/Schemata/sarif-schema-2.1.0.json',
+      version: '2.1.0',
+      runs: []
+    };
+
+    for (const lang of languages) {
+      const langDbPath = path.join(this.databasePath, lang);
+      const langResultsPath = baseResultsPath.replace('.sarif', `-${lang}.sarif`);
+
+      // Check if the database for this language exists
+      if (!fs.existsSync(langDbPath)) {
+        console.warn(`  Database for ${lang} not found, skipping...`);
+        continue;
+      }
+
+      const args = [
+        'database', 'analyze',
+        langDbPath,
+        queryPack,
+        '--format=sarifv2.1.0',
+        `--output=${langResultsPath}`,
+      ];
+
+      if (this.options.threads) {
+        args.push(`--threads=${this.options.threads}`);
+      }
+
+      try {
+        await this.runCodeQL(args, `Running CodeQL queries for ${lang}`);
+
+        // Read and merge results
+        const sarifContent = await fs.promises.readFile(langResultsPath, 'utf-8');
+        const langResults = JSON.parse(sarifContent) as SarifResult;
+        allResults.runs.push(...langResults.runs);
+      } catch (error) {
+        console.warn(`  Failed to analyze ${lang}: ${(error as Error).message}`);
+      }
+    }
+
+    return allResults;
+  }
+
+  /**
    * Get the path to the default AIGraph query pack
    */
   private getDefaultQueryPackPath(): string {
     // Check for query pack in various locations
     const possiblePaths = [
+      // New location: queries/ at project root
+      path.join(__dirname, '../../queries'),
+      path.join(__dirname, '../../../queries'),
+      path.join(process.cwd(), 'queries'),
+      // Legacy location: codeql/aigraph-queries/
       path.join(__dirname, '../../codeql/aigraph-queries'),
       path.join(__dirname, '../../../codeql/aigraph-queries'),
       path.join(process.cwd(), 'codeql/aigraph-queries'),
@@ -314,18 +408,20 @@ export class CodeQLScanner {
     return new Promise((resolve, reject) => {
       console.log(`  ${description}...`);
 
-      const process = spawn('codeql', args, {
-        shell: true,
+      const codeqlPath = this.options.codeqlPath || 'codeql';
+
+      const childProcess = spawn(codeqlPath, args, {
         timeout: (this.options.timeout || 1800) * 1000,
+        stdio: ['pipe', 'pipe', 'pipe'],
       });
 
       let stderr = '';
 
-      process.stderr?.on('data', (data) => {
+      childProcess.stderr?.on('data', (data) => {
         stderr += data.toString();
       });
 
-      process.on('close', (code) => {
+      childProcess.on('close', (code) => {
         if (code === 0) {
           resolve();
         } else {
@@ -333,30 +429,25 @@ export class CodeQLScanner {
         }
       });
 
-      process.on('error', (err) => {
+      childProcess.on('error', (err) => {
         reject(new Error(`Failed to run CodeQL: ${err.message}`));
       });
     });
   }
 
   /**
-   * Parse SARIF results into AIGraph detections
+   * Parse SARIF results into detections
    */
   private parseResults(sarif: SarifResult): Detection[] {
     const detections: Detection[] = [];
 
-    for (const run of sarif.runs) {
-      const rules = new Map(run.tool.driver.rules.map(r => [r.id, r]));
+    for (const run of sarif.runs || []) {
+      const rules = new Map(run.tool?.driver?.rules?.map(r => [r.id, r]) || []);
 
-      for (const result of run.results) {
-        const rule = rules.get(result.ruleId);
-        if (!rule) continue;
-
-        for (const location of result.locations) {
-          const detection = this.createDetection(result, rule, location);
-          if (detection) {
-            detections.push(detection);
-          }
+      for (const result of run.results || []) {
+        const detection = this.createDetection(result, rules.get(result.ruleId), result.locations?.[0]);
+        if (detection) {
+          detections.push(detection);
         }
       }
     }
@@ -369,99 +460,76 @@ export class CodeQLScanner {
    */
   private createDetection(
     result: SarifResultItem,
-    rule: SarifRule,
-    location: SarifLocation
+    rule: SarifRule | undefined,
+    location: SarifLocation | undefined
   ): Detection | null {
-    const { category, name, context } = this.parseRuleId(result.ruleId, result.message.text);
-    
-    const physLoc = location.physicalLocation;
-    const filePath = physLoc.artifactLocation.uri;
-    const region = physLoc.region;
+    if (!location?.physicalLocation) return null;
 
-    // Determine confidence from rule precision
-    let confidence: 'high' | 'medium' | 'low' = 'medium';
-    if (rule.properties?.precision === 'high') confidence = 'high';
-    else if (rule.properties?.precision === 'low') confidence = 'low';
+    const { category, name, context } = this.parseRuleId(result.ruleId, result.message?.text || '');
 
     return {
       category,
       name,
-      file: filePath,
-      line: region.startLine,
-      column: region.startColumn,
-      snippet: region.snippet?.text || '',
-      confidence,
+      file: location.physicalLocation.artifactLocation.uri,
+      line: location.physicalLocation.region.startLine,
+      column: location.physicalLocation.region.startColumn,
+      snippet: location.physicalLocation.region.snippet?.text || '',
+      confidence: this.getConfidenceFromRule(rule),
       context,
       metadata: {
         ruleId: result.ruleId,
-        message: result.message.text,
+        ruleName: rule?.name || '',
       },
     };
   }
 
   /**
-   * Parse rule ID and message to determine category and name
+   * Parse rule ID to extract category and name
    */
-  private parseRuleId(
-    ruleId: string,
-    message: string
-  ): { category: DetectionCategory; name: string; context: DetectionContext } {
-    // Default values
-    let category: DetectionCategory = 'framework';
-    let name = 'unknown';
+  private parseRuleId(ruleId: string, message: string): { category: DetectionCategory; name: string; context: DetectionContext } {
+    // Parse rule IDs like: aigraph/python/ai-sdk-import, aigraph/js/api-endpoint
+    const parts = ruleId.split('/');
+    let category: DetectionCategory = 'model';
     let context: DetectionContext = 'code';
 
-    // Parse category from rule ID
-    if (ruleId.includes('ai-sdk-import') || ruleId.includes('dynamic-ai-import')) {
+    if (ruleId.includes('import') || ruleId.includes('sdk')) {
       category = 'framework';
       context = 'import';
-    } else if (ruleId.includes('ai-model-name')) {
-      category = 'model';
-      context = 'string';
-    } else if (ruleId.includes('ai-api-endpoint')) {
+    } else if (ruleId.includes('api-endpoint') || ruleId.includes('http')) {
       category = 'api-endpoint';
-      context = 'code';
-    } else if (ruleId.includes('ai-client-instantiation')) {
-      category = 'framework';
-      context = 'code';
-    } else if (ruleId.includes('mcp')) {
+    } else if (ruleId.includes('mcp-server')) {
       category = 'mcp-server';
-      context = 'code';
-    } else if (ruleId.includes('ai-env-variable')) {
+    } else if (ruleId.includes('mcp-tool') || ruleId.includes('mcp-client')) {
+      category = 'mcp-tool';
+    } else if (ruleId.includes('env') || ruleId.includes('environment')) {
       category = 'platform';
       context = 'env';
     }
 
-    // Extract name from message
-    const patterns = [
-      /import detected: (\S+)/,
-      /model name detected: (\S+)/,
-      /client instantiation: (?:new )?(\S+)/,
-      /API (?:call|endpoint)[^:]*: (\S+)/,
-      /environment variable[^:]*: (\S+)/,
-      /module import detected: (\S+)/,
-      /package reference: (\S+)/,
-    ];
-
-    for (const pattern of patterns) {
-      const match = message.match(pattern);
-      if (match) {
-        name = match[1].replace(/[()]/g, '');
-        break;
-      }
-    }
-
-    // Clean up name
-    name = name.replace(/['"`]/g, '');
+    // Extract name from message (usually the first quoted string)
+    const nameMatch = message.match(/['"]([^'"]+)['"]/);
+    const name = nameMatch ? nameMatch[1] : parts[parts.length - 1];
 
     return { category, name, context };
   }
 
   /**
-   * Clean up temporary files
+   * Get confidence level from rule
+   */
+  private getConfidenceFromRule(rule: SarifRule | undefined): 'high' | 'medium' | 'low' {
+    if (!rule) return 'medium';
+
+    const precision = rule.properties?.precision;
+    if (precision === 'very-high' || precision === 'high') return 'high';
+    if (precision === 'low') return 'low';
+    return 'medium';
+  }
+
+  /**
+   * Cleanup temporary files
    */
   private async cleanup(): Promise<void> {
-    if (this.tempDir && fs.existsSync(this.tempDir)) {
+    if (this.tempDir) {
       try {
         await fs.promises.rm(this.tempDir, { recursive: true, force: true });
       } catch {
@@ -475,9 +543,6 @@ export class CodeQLScanner {
  * Convenience function to run CodeQL scan
  */
 export async function runCodeQLScan(scanPath: string, options?: Partial<CodeQLScanOptions>): Promise<Detection[]> {
-  const scanner = new CodeQLScanner({
-    scanPath,
-    ...options,
-  });
+  const scanner = new CodeQLScanner({ scanPath, ...options });
   return scanner.scan();
 }
