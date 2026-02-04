@@ -417,11 +417,25 @@ export class CodeQLScanner {
 
       let stderr = '';
 
+      // Show progress output for long-running commands
+      childProcess.stdout?.on('data', (data) => {
+        const output = data.toString().trim();
+        if (output && (output.includes('Extracting') || output.includes('Analyzing') || output.includes('%'))) {
+          process.stdout.write(`\r    ${output.slice(0, 70).padEnd(70)}`);
+        }
+      });
+
       childProcess.stderr?.on('data', (data) => {
         stderr += data.toString();
+        // Show progress for database creation
+        const output = data.toString().trim();
+        if (output && (output.includes('Extracting') || output.includes('Finalizing'))) {
+          process.stdout.write(`\r    ${output.slice(0, 70).padEnd(70)}`);
+        }
       });
 
       childProcess.on('close', (code) => {
+        process.stdout.write('\r' + ' '.repeat(74) + '\r'); // Clear progress line
         if (code === 0) {
           resolve();
         } else {
