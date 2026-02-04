@@ -172,17 +172,17 @@ codeql pack install queries/
 
 ### Regex vs CodeQL: Effectiveness Comparison
 
-The scanner uses **dual analysis** because regex and CodeQL are complementary—they catch entirely different things.
+The scanner uses **dual analysis** because regex and CodeQL are complementary—together they provide more comprehensive and accurate detection than either method alone.
 
 #### Real-World Results (from scanning a production codebase)
 
-| Method | Total Found | Unique Detections | Duration |
-|--------|-------------|-------------------|----------|
-| **Regex** | 487 | 100% unique | ~3 seconds |
-| **CodeQL** | 167 | 100% unique | ~90 seconds |
-| **Overlap** | 0 | — | — |
+| Method | Total Found | Unique | Overlap | Duration |
+|--------|-------------|--------|---------|----------|
+| **Regex** | 191 | 175 (92%) | 16 | ~3 seconds |
+| **CodeQL** | 167 | 151 (90%) | 16 | ~90 seconds |
+| **Combined** | 291 | — | — | ~93 seconds |
 
-> **Key Insight:** Zero overlap! Each method finds completely different things.
+> **Key Insight:** 16 detections found by both methods provide validation. Each method also finds unique things the other misses.
 
 #### What Regex Excels At
 
@@ -190,9 +190,9 @@ The scanner uses **dual analysis** because regex and CodeQL are complementary—
 |----------|----------|
 | **Config files** | `.mcp.json`, `package.json`, YAML configs |
 | **Documentation** | Model names in docs, README references |
-| **String literals** | API URLs, platform names in any file type |
 | **Speed** | 30x faster than CodeQL |
 | **No setup** | Works immediately, no external tools needed |
+| **JSON/YAML** | CodeQL can't parse these file types |
 
 Best for: Quick scans, CI pipelines, config file detection
 
