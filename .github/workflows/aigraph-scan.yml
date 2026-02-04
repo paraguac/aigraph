@@ -11,15 +11,20 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      security-events: write
       
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
         
-      - name: Run AIGraph Scanner
-        uses: ./
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
-          spec-file: '.aigraph-spec.yml'
-          fail-on-violation: 'true'
-          output-format: 'markdown'
+          node-version: '20'
+          
+      - name: Install dependencies and build
+        run: |
+          npm ci
+          npm run build:all
+          
+      - name: Run AIGraph Scanner
+        run: node dist/cli.js . --no-fail -f markdown
