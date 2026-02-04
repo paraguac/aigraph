@@ -204,22 +204,24 @@ export class CodeQLScanner {
   }
 
   /**
-   * Install CodeQL pack dependencies
+   * Install CodeQL pack dependencies for all detected languages
    */
   private async installPackDependencies(): Promise<void> {
     const queryPack = this.options.queryPack || this.getDefaultQueryPackPath();
+    const languages = this.options.languages || await this.detectLanguages();
 
-    // Check if qlpack.yml exists
-    const qlpackPath = path.join(queryPack, 'qlpack.yml');
-    if (!fs.existsSync(qlpackPath)) {
-      return; // No pack to install
-    }
-
-    try {
-      await this.runCodeQL(['pack', 'install', queryPack], 'Installing CodeQL pack dependencies');
-    } catch (error) {
-      console.warn(`  Warning: Could not install pack dependencies: ${(error as Error).message}`);
-      // Continue anyway - might work if dependencies are already cached
+    // Install dependencies for each language-specific pack
+    for (const lang of languages) {
+      const langPack = path.join(queryPack, lang);
+      const qlpackPath = path.join(langPack, 'qlpack.yml');
+      
+      if (fs.existsSync(qlpackPath)) {
+        try {
+          await this.runCodeQL(['pack', 'install', langPack], `Installing ${lang} pack dependencies`);
+        } catch (error) {
+          console.warn(`  Warning: Could not install ${lang} pack dependencies: ${(error as Error).message}`);
+        }
+      }
     }
   }
 
@@ -305,10 +307,13 @@ export class CodeQLScanner {
       return this.runQueriesOnCluster(queryPack, resultsPath, languages);
     }
 
+    // Use language-specific query pack for single language
+    const langQueryPack = this.getLanguageQueryPackPath(languages[0], queryPack);
+
     const args = [
       'database', 'analyze',
       this.databasePath,
-      queryPack,
+      langQueryPack,
       '--format=sarifv2.1.0',
       `--output=${resultsPath}`,
     ];
@@ -317,7 +322,7 @@ export class CodeQLScanner {
       args.push(`--threads=${this.options.threads}`);
     }
 
-    await this.runCodeQL(args, 'Running CodeQL queries');
+    await this.runCodeQL(args, `Running CodeQL queries for ${languages[0]}`);
 
     // Read and parse SARIF results
     const sarifContent = await fs.promises.readFile(resultsPath, 'utf-8');
@@ -348,10 +353,13 @@ export class CodeQLScanner {
         continue;
       }
 
+      // Use language-specific query pack
+      const langQueryPack = this.getLanguageQueryPackPath(lang, queryPack);
+
       const args = [
         'database', 'analyze',
         langDbPath,
-        queryPack,
+        langQueryPack,
         '--format=sarifv2.1.0',
         `--output=${langResultsPath}`,
       ];
@@ -376,29 +384,43 @@ export class CodeQLScanner {
   }
 
   /**
-   * Get the path to the default AIGraph query pack
+   * Get the path to language-specific query pack
+   */
+  private getLanguageQueryPackPath(language: string, baseQueryPack: string): string {
+    // Check for language-specific subdirectory
+    const langPath = path.join(baseQueryPack, language);
+    if (fs.existsSync(path.join(langPath, 'qlpack.yml'))) {
+      return langPath;
+    }
+    // Fall back to base pack (may fail if multi-language)
+    return baseQueryPack;
+  }
+
+  /**
+   * Get the path to the default AIGraph query pack (parent directory containing language subdirs)
    */
   private getDefaultQueryPackPath(): string {
     // Check for query pack in various locations
+    // Now we look for the parent directory that contains javascript/ and python/ subdirs
     const possiblePaths = [
       // New location: queries/ at project root
       path.join(__dirname, '../../queries'),
       path.join(__dirname, '../../../queries'),
       path.join(process.cwd(), 'queries'),
-      // Legacy location: codeql/aigraph-queries/
-      path.join(__dirname, '../../codeql/aigraph-queries'),
-      path.join(__dirname, '../../../codeql/aigraph-queries'),
-      path.join(process.cwd(), 'codeql/aigraph-queries'),
     ];
 
     for (const p of possiblePaths) {
-      if (fs.existsSync(path.join(p, 'qlpack.yml'))) {
+      // Check if this directory has language-specific subdirectories with qlpack.yml
+      const jsPackPath = path.join(p, 'javascript', 'qlpack.yml');
+      const pyPackPath = path.join(p, 'python', 'qlpack.yml');
+      if (fs.existsSync(jsPackPath) || fs.existsSync(pyPackPath)) {
         return p;
       }
     }
 
-    // Fall back to installed query pack
-    return 'aigraph/ai-detection-queries';
+    // No local packs found - this will cause an error but at least it's informative
+    console.warn('  Warning: No local query packs found in queries/ directory');
+    return path.join(process.cwd(), 'queries');
   }
 
   /**

@@ -1,0 +1,6 @@
+name: aigraph/ai-detection-python
+version: 1.0.0
+description: CodeQL queries for detecting AI components in Python
+library: false
+dependencies:
+  codeql/python-all: "*"

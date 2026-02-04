@@ -13163,21 +13163,23 @@ class CodeQLScanner {
         }
     }
     /**
-     * Install CodeQL pack dependencies
+     * Install CodeQL pack dependencies for all detected languages
      */
     async installPackDependencies() {
         const queryPack = this.options.queryPack || this.getDefaultQueryPackPath();
-        // Check if qlpack.yml exists
-        const qlpackPath = path.join(queryPack, 'qlpack.yml');
-        if (!fs.existsSync(qlpackPath)) {
-            return; // No pack to install
-        }
-        try {
-            await this.runCodeQL(['pack', 'install', queryPack], 'Installing CodeQL pack dependencies');
-        }
-        catch (error) {
-            console.warn(`  Warning: Could not install pack dependencies: ${error.message}`);
-            // Continue anyway - might work if dependencies are already cached
+        const languages = this.options.languages || await this.detectLanguages();
+        // Install dependencies for each language-specific pack
+        for (const lang of languages) {
+            const langPack = path.join(queryPack, lang);
+            const qlpackPath = path.join(langPack, 'qlpack.yml');
+            if (fs.existsSync(qlpackPath)) {
+                try {
+                    await this.runCodeQL(['pack', 'install', langPack], `Installing ${lang} pack dependencies`);
+                }
+                catch (error) {
+                    console.warn(`  Warning: Could not install ${lang} pack dependencies: ${error.message}`);
+                }
+            }
         }
     }
     /**
@@ -13254,17 +13256,19 @@ class CodeQLScanner {
         if (languages.length > 1) {
             return this.runQueriesOnCluster(queryPack, resultsPath, languages);
         }
+        // Use language-specific query pack for single language
+        const langQueryPack = this.getLanguageQueryPackPath(languages[0], queryPack);
         const args = [
             'database', 'analyze',
             this.databasePath,
-            queryPack,
+            langQueryPack,
             '--format=sarifv2.1.0',
             `--output=${resultsPath}`,
         ];
         if (this.options.threads) {
             args.push(`--threads=${this.options.threads}`);
         }
-        await this.runCodeQL(args, 'Running CodeQL queries');
+        await this.runCodeQL(args, `Running CodeQL queries for ${languages[0]}`);
         // Read and parse SARIF results
         const sarifContent = await fs.promises.readFile(resultsPath, 'utf-8');
         return JSON.parse(sarifContent);
@@ -13286,10 +13290,12 @@ class CodeQLScanner {
                 console.warn(`  Database for ${lang} not found, skipping...`);
                 continue;
             }
+            // Use language-specific query pack
+            const langQueryPack = this.getLanguageQueryPackPath(lang, queryPack);
             const args = [
                 'database', 'analyze',
                 langDbPath,
-                queryPack,
+                langQueryPack,
                 '--format=sarifv2.1.0',
                 `--output=${langResultsPath}`,
             ];
@@ -13308,6 +13314,18 @@ class CodeQLScanner {
             }
         }
         return allResults;
+    }
+    /**
+     * Get the path to language-specific query pack
+     */
+    getLanguageQueryPackPath(language, baseQueryPack) {
+        // Check for language-specific subdirectory
+        const langPath = path.join(baseQueryPack, language);
+        if (fs.existsSync(path.join(langPath, 'qlpack.yml'))) {
+            return langPath;
+        }
+        // Fall back to base pack (may fail if multi-language)
+        return baseQueryPack;
     }
     /**
      * Get the path to the default AIGraph query pack

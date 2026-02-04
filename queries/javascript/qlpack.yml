@@ -1,0 +1,6 @@
+name: aigraph/ai-detection-javascript
+version: 1.0.0
+description: CodeQL queries for detecting AI components in JavaScript/TypeScript
+library: false
+dependencies:
+  codeql/javascript-all: "*"
