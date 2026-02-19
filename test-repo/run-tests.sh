@@ -10,6 +10,10 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 TEST_REPO_DIR="$SCRIPT_DIR"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
+# Create temporary directory for test results
+TEMP_DIR=$(mktemp -d -t aigraph-test-XXXXXX)
+trap "rm -rf $TEMP_DIR" EXIT
+
 echo "=================================================="
 echo "AIGraph Scanner Test Suite"
 echo "=================================================="
@@ -38,10 +42,10 @@ echo "=================================================="
 echo "Scanning: $TEST_REPO_DIR/true-positives/"
 echo ""
 
-$SCANNER_CMD "$TEST_REPO_DIR/true-positives/" -q -f json 2>/dev/null > /tmp/aigraph-true-pos.json || true
+$SCANNER_CMD "$TEST_REPO_DIR/true-positives/" -q -f json 2>/dev/null > "$TEMP_DIR/true-pos.json" || true
 
-if [ -f /tmp/aigraph-true-pos.json ] && [ -s /tmp/aigraph-true-pos.json ]; then
-    TRUE_DETECTIONS=$(jq -r '.summary.totalDetections' /tmp/aigraph-true-pos.json 2>/dev/null || echo "0")
+if [ -f "$TEMP_DIR/true-pos.json" ] && [ -s "$TEMP_DIR/true-pos.json" ]; then
+    TRUE_DETECTIONS=$(jq -r '.summary.totalDetections' "$TEMP_DIR/true-pos.json" 2>/dev/null || echo "0")
     echo "✅ True Positives Test Complete"
     echo "   Detections found: $TRUE_DETECTIONS (expected: 50+)"
     
@@ -62,10 +66,10 @@ echo "Scanning: $TEST_REPO_DIR/false-positives/"
 echo "Note: Comments and strings should be filtered"
 echo ""
 
-$SCANNER_CMD "$TEST_REPO_DIR/false-positives/" -q -f json --no-codeql 2>/dev/null > /tmp/aigraph-false-pos.json || true
+$SCANNER_CMD "$TEST_REPO_DIR/false-positives/" -q -f json --no-codeql 2>/dev/null > "$TEMP_DIR/false-pos.json" || true
 
-if [ -f /tmp/aigraph-false-pos.json ] && [ -s /tmp/aigraph-false-pos.json ]; then
-    FALSE_DETECTIONS=$(jq -r '.summary.totalDetections' /tmp/aigraph-false-pos.json 2>/dev/null || echo "0")
+if [ -f "$TEMP_DIR/false-pos.json" ] && [ -s "$TEMP_DIR/false-pos.json" ]; then
+    FALSE_DETECTIONS=$(jq -r '.summary.totalDetections' "$TEMP_DIR/false-pos.json" 2>/dev/null || echo "0")
     echo "✅ False Positives Test Complete"
     echo "   Detections found: $FALSE_DETECTIONS (expected: 0-10)"
     
@@ -85,10 +89,10 @@ echo "=================================================="
 echo "Testing with: $TEST_REPO_DIR/test-policy-allowlist.yml"
 echo ""
 
-$SCANNER_CMD -s "$TEST_REPO_DIR/test-policy-allowlist.yml" "$TEST_REPO_DIR/true-positives/" -q -f json --no-fail 2>/dev/null > /tmp/aigraph-allowlist.json || true
+$SCANNER_CMD -s "$TEST_REPO_DIR/test-policy-allowlist.yml" "$TEST_REPO_DIR/true-positives/" -q -f json --no-fail 2>/dev/null > "$TEMP_DIR/allowlist.json" || true
 
-if [ -f /tmp/aigraph-allowlist.json ] && [ -s /tmp/aigraph-allowlist.json ]; then
-    ALLOW_VIOLATIONS=$(jq -r '.summary.totalViolations' /tmp/aigraph-allowlist.json 2>/dev/null || echo "0")
+if [ -f "$TEMP_DIR/allowlist.json" ] && [ -s "$TEMP_DIR/allowlist.json" ]; then
+    ALLOW_VIOLATIONS=$(jq -r '.summary.totalViolations' "$TEMP_DIR/allowlist.json" 2>/dev/null || echo "0")
     echo "✅ Allowlist Test Complete"
     echo "   Violations found: $ALLOW_VIOLATIONS (expected: 8+)"
     echo "   Violations are models/frameworks NOT in the allowlist"
@@ -105,10 +109,10 @@ echo "=================================================="
 echo "Testing with: $TEST_REPO_DIR/test-policy-denylist.yml"
 echo ""
 
-$SCANNER_CMD -s "$TEST_REPO_DIR/test-policy-denylist.yml" "$TEST_REPO_DIR/true-positives/" -q -f json --no-fail 2>/dev/null > /tmp/aigraph-denylist.json || true
+$SCANNER_CMD -s "$TEST_REPO_DIR/test-policy-denylist.yml" "$TEST_REPO_DIR/true-positives/" -q -f json --no-fail 2>/dev/null > "$TEMP_DIR/denylist.json" || true
 
-if [ -f /tmp/aigraph-denylist.json ] && [ -s /tmp/aigraph-denylist.json ]; then
-    DENY_VIOLATIONS=$(jq -r '.summary.totalViolations' /tmp/aigraph-denylist.json 2>/dev/null || echo "0")
+if [ -f "$TEMP_DIR/denylist.json" ] && [ -s "$TEMP_DIR/denylist.json" ]; then
+    DENY_VIOLATIONS=$(jq -r '.summary.totalViolations' "$TEMP_DIR/denylist.json" 2>/dev/null || echo "0")
     echo "✅ Denylist Test Complete"
     echo "   Violations found: $DENY_VIOLATIONS (expected: 7+)"
     echo "   Violations are models/frameworks IN the denylist"
