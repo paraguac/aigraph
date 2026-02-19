@@ -1,0 +1,45 @@
+# Test repository .gitignore
+# Ignore any generated test outputs or temporary files
+
+# Test outputs
+*.json
+results/
+output/
+
+# Logs
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+.venv/
+venv/
+
+# Node
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Ignore actual .codeql database if created during testing
+.codeql/
+codeql-database/

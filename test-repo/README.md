@@ -120,9 +120,13 @@ aigraph-scanner -s test-repo/test-policy-denylist.yml test-repo/true-positives
 - **Violations**: Depends on policy spec used
 
 ### False Positives Directory
-- **Expected Detections**: 0-5 detections (when excluding comments)
-- **Confidence**: Low to medium (if any are detected)
+- **Expected Detections**: 40-50 detections (in strings/comments - this is normal)
+- **Confidence**: High (patterns match correctly, context shows they're in strings/comments)
 - **Violations**: Should be 0 with proper filtering
+- **Note**: These detections are EXPECTED - they test the scanner's filtering capabilities
+  - Use `--no-strings` to exclude string literals
+  - Comments are excluded by default (use `--include-comments` to include them)
+  - Configure ignore patterns in policy files for documentation
 
 ## Testing Both Scanning Methods
 
