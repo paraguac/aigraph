@@ -19,7 +19,12 @@ MIN_DENYLIST_VIOLATIONS=5    # Minimum expected denylist violations
 
 # Create temporary directory for test results
 TEMP_DIR=$(mktemp -d -t aigraph-test-XXXXXX)
-trap "rm -rf $TEMP_DIR" EXIT
+# Safety check and cleanup trap
+if [ -z "$TEMP_DIR" ] || [ "$TEMP_DIR" = "/" ]; then
+    echo "❌ Failed to create temporary directory"
+    exit 1
+fi
+trap 'rm -rf "$TEMP_DIR"' EXIT
 
 echo "=================================================="
 echo "AIGraph Scanner Test Suite"
