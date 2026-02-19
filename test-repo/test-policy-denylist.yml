@@ -1,0 +1,54 @@
+# AIGraph Test Policy - Denylist Mode
+# This policy blocks specific AI components for testing
+
+version: "1.0"
+
+policies:
+  # Block LLaMA and Mistral (open source models)
+  models:
+    mode: denylist
+    items:
+      - llama
+      - mistral
+      - phi
+    patterns: []
+
+  # Block AutoGen and CrewAI frameworks
+  frameworks:
+    mode: denylist
+    items:
+      - autogen
+      - crewai
+    patterns: []
+
+  # Block local platforms (Ollama, LM Studio)
+  platforms:
+    mode: denylist
+    items:
+      - ollama
+      - lmstudio
+    patterns: []
+
+  # Block potentially risky MCP servers
+  mcpServers:
+    mode: denylist
+    items:
+      - mcp-server-puppeteer  # Browser automation risk
+      - mcp-server-postgres   # Database access risk
+    patterns: []
+
+  # Allow all MCP tools (no restrictions)
+  mcpTools:
+    mode: allowlist
+    items: []
+    patterns:
+      - "*"  # Allow everything
+
+# Ignore test and documentation files
+ignore:
+  directories:
+    - false-positives
+  files:
+    - "*.md"
+  patterns:
+    - "**/false-positives/**"

@@ -1,0 +1,69 @@
+version: '3.8'
+
+services:
+  # OpenAI service
+  openai-service:
+    image: ai-app:latest
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - MODEL=gpt-4
+      - BACKUP_MODEL=gpt-3.5-turbo
+    ports:
+      - "8001:8000"
+
+  # Anthropic service
+  claude-service:
+    image: ai-app:latest
+    environment:
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - MODEL=claude-3-sonnet-20240229
+    ports:
+      - "8002:8000"
+
+  # LangChain service
+  langchain-service:
+    image: langchain-app:latest
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - LANGCHAIN_API_KEY=${LANGCHAIN_API_KEY}
+      - LANGSMITH_API_KEY=${LANGSMITH_API_KEY}
+    depends_on:
+      - openai-service
+
+  # Ollama local model service
+  ollama:
+    image: ollama/ollama:latest
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama-data:/root/.ollama
+    command: serve
+    environment:
+      - OLLAMA_MODELS=llama2,mistral,codellama
+
+  # AWS Bedrock proxy
+  bedrock-proxy:
+    image: bedrock-proxy:latest
+    environment:
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+      - AWS_REGION=us-east-1
+      - BEDROCK_MODEL=anthropic.claude-3-sonnet-20240229-v1:0
+
+  # Azure OpenAI service
+  azure-openai:
+    image: azure-ai-app:latest
+    environment:
+      - AZURE_OPENAI_API_KEY=${AZURE_OPENAI_API_KEY}
+      - AZURE_OPENAI_ENDPOINT=${AZURE_OPENAI_ENDPOINT}
+      - AZURE_MODEL=gpt-4
+
+  # MCP server container
+  mcp-filesystem:
+    image: mcp-server:latest
+    command: npx -y @modelcontextprotocol/server-filesystem /data
+    volumes:
+      - ./data:/data
+
+volumes:
+  ollama-data:

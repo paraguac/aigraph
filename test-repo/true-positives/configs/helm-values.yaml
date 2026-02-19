@@ -1,0 +1,68 @@
+# Helm Chart with AI Services - True Positive Test
+
+apiVersion: v2
+name: ai-service
+description: AI service deployment with multiple models
+type: application
+version: 1.0.0
+
+---
+# Values file
+replicaCount: 3
+
+openai:
+  enabled: true
+  model: gpt-4
+  apiKey: "secret-ref"
+  deployment:
+    resources:
+      limits:
+        cpu: 1000m
+        memory: 2Gi
+
+anthropic:
+  enabled: true
+  model: claude-3-sonnet-20240229
+  apiKey: "secret-ref"
+
+ollama:
+  enabled: true
+  models:
+    - llama2
+    - mistral
+    - codellama
+  resources:
+    limits:
+      cpu: 4000m
+      memory: 8Gi
+
+langchain:
+  enabled: true
+  provider: openai
+  model: gpt-4
+
+azure:
+  enabled: true
+  openai:
+    endpoint: "https://myresource.openai.azure.com/"
+    deployment: gpt-4
+
+bedrock:
+  enabled: true
+  region: us-east-1
+  models:
+    - anthropic.claude-3-sonnet-20240229-v1:0
+    - amazon.titan-text-express-v1
+
+vertexai:
+  enabled: false
+  project: my-project
+  location: us-central1
+  model: gemini-pro
+
+mcp:
+  servers:
+    - name: filesystem
+      package: "@modelcontextprotocol/server-filesystem"
+    - name: github
+      package: "@modelcontextprotocol/server-github"
