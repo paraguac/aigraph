@@ -10,6 +10,13 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 TEST_REPO_DIR="$SCRIPT_DIR"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
+# Test thresholds (adjust these based on test repository changes)
+MIN_TRUE_DETECTIONS=250      # Minimum expected true positive detections
+MAX_TRUE_DETECTIONS=350      # Maximum expected true positive detections
+MAX_FALSE_DETECTIONS=60      # Maximum acceptable false positive detections
+MIN_ALLOWLIST_VIOLATIONS=5   # Minimum expected allowlist violations
+MIN_DENYLIST_VIOLATIONS=5    # Minimum expected denylist violations
+
 # Create temporary directory for test results
 TEMP_DIR=$(mktemp -d -t aigraph-test-XXXXXX)
 trap "rm -rf $TEMP_DIR" EXIT
@@ -137,14 +144,14 @@ echo ""
 PASS_COUNT=0
 TOTAL_TESTS=4
 
-if [ "$TRUE_DETECTIONS" -ge 250 ] && [ "$TRUE_DETECTIONS" -le 350 ]; then
+if [ "$TRUE_DETECTIONS" -ge "$MIN_TRUE_DETECTIONS" ] && [ "$TRUE_DETECTIONS" -le "$MAX_TRUE_DETECTIONS" ]; then
     PASS_COUNT=$((PASS_COUNT + 1))
 fi
-if [ "$FALSE_DETECTIONS" -le 60 ]; then
+if [ "$FALSE_DETECTIONS" -le "$MAX_FALSE_DETECTIONS" ]; then
     PASS_COUNT=$((PASS_COUNT + 1))
 fi
-[ "$ALLOW_VIOLATIONS" -ge 5 ] && PASS_COUNT=$((PASS_COUNT + 1))
-[ "$DENY_VIOLATIONS" -ge 5 ] && PASS_COUNT=$((PASS_COUNT + 1))
+[ "$ALLOW_VIOLATIONS" -ge "$MIN_ALLOWLIST_VIOLATIONS" ] && PASS_COUNT=$((PASS_COUNT + 1))
+[ "$DENY_VIOLATIONS" -ge "$MIN_DENYLIST_VIOLATIONS" ] && PASS_COUNT=$((PASS_COUNT + 1))
 
 echo "Tests Passed: $PASS_COUNT/$TOTAL_TESTS"
 echo ""
