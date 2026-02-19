@@ -115,7 +115,7 @@ aigraph-scanner -s test-repo/test-policy-denylist.yml test-repo/true-positives
 ## Expected Results
 
 ### True Positives Directory
-- **Expected Detections**: 50+ AI components across all categories
+- **Expected Detections**: 250-350 AI components across all categories
 - **Confidence**: High (most detections should be high confidence)
 - **Violations**: Depends on policy spec used
 

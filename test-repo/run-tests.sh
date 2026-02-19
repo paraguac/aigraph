@@ -54,10 +54,10 @@ $SCANNER_CMD "$TEST_REPO_DIR/true-positives/" -q -f json 2>/dev/null > "$TEMP_DI
 if [ -f "$TEMP_DIR/true-pos.json" ] && [ -s "$TEMP_DIR/true-pos.json" ]; then
     TRUE_DETECTIONS=$(jq -r '.summary.totalDetections' "$TEMP_DIR/true-pos.json" 2>/dev/null || echo "0")
     echo "✅ True Positives Test Complete"
-    echo "   Detections found: $TRUE_DETECTIONS (expected: 50+)"
+    echo "   Detections found: $TRUE_DETECTIONS (expected: $MIN_TRUE_DETECTIONS-$MAX_TRUE_DETECTIONS)"
     
-    if [ "$TRUE_DETECTIONS" -lt 30 ]; then
-        echo "⚠️  Warning: Low detection count. Expected 50+."
+    if [ "$TRUE_DETECTIONS" -lt "$MIN_TRUE_DETECTIONS" ]; then
+        echo "⚠️  Warning: Low detection count. Expected $MIN_TRUE_DETECTIONS-$MAX_TRUE_DETECTIONS."
     fi
 else
     echo "⚠️  Could not parse results"
@@ -78,9 +78,9 @@ $SCANNER_CMD "$TEST_REPO_DIR/false-positives/" -q -f json --no-codeql 2>/dev/nul
 if [ -f "$TEMP_DIR/false-pos.json" ] && [ -s "$TEMP_DIR/false-pos.json" ]; then
     FALSE_DETECTIONS=$(jq -r '.summary.totalDetections' "$TEMP_DIR/false-pos.json" 2>/dev/null || echo "0")
     echo "✅ False Positives Test Complete"
-    echo "   Detections found: $FALSE_DETECTIONS (expected: 0-10)"
+    echo "   Detections found: $FALSE_DETECTIONS (expected: ≤$MAX_FALSE_DETECTIONS)"
     
-    if [ "$FALSE_DETECTIONS" -gt 20 ]; then
+    if [ "$FALSE_DETECTIONS" -gt "$MAX_FALSE_DETECTIONS" ]; then
         echo "⚠️  Warning: High false positive count."
     fi
 else
@@ -101,7 +101,7 @@ $SCANNER_CMD -s "$TEST_REPO_DIR/test-policy-allowlist.yml" "$TEST_REPO_DIR/true-
 if [ -f "$TEMP_DIR/allowlist.json" ] && [ -s "$TEMP_DIR/allowlist.json" ]; then
     ALLOW_VIOLATIONS=$(jq -r '.summary.totalViolations' "$TEMP_DIR/allowlist.json" 2>/dev/null || echo "0")
     echo "✅ Allowlist Test Complete"
-    echo "   Violations found: $ALLOW_VIOLATIONS (expected: 8+)"
+    echo "   Violations found: $ALLOW_VIOLATIONS (expected: ≥$MIN_ALLOWLIST_VIOLATIONS)"
     echo "   Violations are models/frameworks NOT in the allowlist"
 else
     echo "⚠️  Could not parse results"
@@ -121,7 +121,7 @@ $SCANNER_CMD -s "$TEST_REPO_DIR/test-policy-denylist.yml" "$TEST_REPO_DIR/true-p
 if [ -f "$TEMP_DIR/denylist.json" ] && [ -s "$TEMP_DIR/denylist.json" ]; then
     DENY_VIOLATIONS=$(jq -r '.summary.totalViolations' "$TEMP_DIR/denylist.json" 2>/dev/null || echo "0")
     echo "✅ Denylist Test Complete"
-    echo "   Violations found: $DENY_VIOLATIONS (expected: 7+)"
+    echo "   Violations found: $DENY_VIOLATIONS (expected: ≥$MIN_DENYLIST_VIOLATIONS)"
     echo "   Violations are models/frameworks IN the denylist"
 else
     echo "⚠️  Could not parse results"

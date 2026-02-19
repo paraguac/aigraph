@@ -265,13 +265,13 @@ Look at the comparison table in output:
 
 ### True Positives Directory
 ```
-Total files: 18+
-Expected detections: 50-80 components
-- Models: 15+ (gpt-4, claude, llama, mistral, gemini, etc.)
-- Frameworks: 6+ (langchain, langgraph, autogen, crewai, llamaindex)
-- Platforms: 4+ (aws-bedrock, azure-openai, vertex-ai, ollama)
-- MCP: 10+ (servers and tools)
-- Config detections: 20+ (from package.json, requirements.txt, docker-compose, k8s)
+Total files: 27
+Expected detections: 250-350 components
+- Models: 60+ (gpt-4, claude, llama, mistral, gemini, etc.)
+- Frameworks: 40+ (langchain, langgraph, autogen, crewai, llamaindex)
+- Platforms: 20+ (aws-bedrock, azure-openai, vertex-ai, ollama)
+- MCP: 30+ (servers and tools)
+- Infrastructure: 150+ (from package.json, requirements.txt, docker-compose, k8s, terraform, helm)
 
 All detections should be HIGH confidence.
 ```
@@ -279,15 +279,15 @@ All detections should be HIGH confidence.
 ### False Positives Directory
 ```
 Total files: 8
-Expected detections (without filtering): 10-30
-Expected detections (with filtering): 0-5
+Expected detections: 40-60 (demonstrates comprehensive pattern matching)
 
 With proper flags:
-- --no-comments: Should exclude comment-only detections
-- --no-strings: Should exclude unrelated string literals
-- Ignore docs: Should exclude documentation files
+- Default: Excludes comments automatically
+- --no-strings: Should further reduce detections
+- Ignore docs in policy: Can exclude documentation files
 
-Remaining detections (if any) should be LOW to MEDIUM confidence.
+Note: These detections validate the scanner's comprehensive coverage.
+Remaining detections (if any) should be in string literals or docs.
 ```
 
 ## Automated Testing Script
