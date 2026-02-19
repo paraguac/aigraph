@@ -1,0 +1,64 @@
+# AIGraph Test Policy - Allowlist Mode
+# This policy allows only specific AI components for testing
+
+version: "1.0"
+
+policies:
+  # Allow only GPT-4 and Claude models
+  models:
+    mode: allowlist
+    items:
+      - gpt-4
+      - claude
+    patterns:
+      - gpt-4*  # Allow all GPT-4 variants
+
+  # Allow only LangChain and LangGraph frameworks
+  frameworks:
+    mode: allowlist
+    items:
+      - langchain
+      - langgraph
+    patterns: []
+
+  # Allow only AWS Bedrock and Azure platforms
+  platforms:
+    mode: allowlist
+    items:
+      - aws-bedrock
+      - azure-openai
+    patterns: []
+
+  # Allow specific MCP servers
+  mcpServers:
+    mode: allowlist
+    items:
+      - mcp-server-filesystem
+      - mcp-server-github
+    patterns: []
+
+  # Allow MCP tools
+  mcpTools:
+    mode: allowlist
+    items:
+      - mcp-sdk
+      - mcp-client
+    patterns:
+      - mcp-*
+
+# Ignore test and documentation files
+ignore:
+  directories:
+    - test
+    - tests
+    - __tests__
+    - docs
+    - false-positives
+  files:
+    - "*.test.ts"
+    - "*.test.js"
+    - "*.test.py"
+    - "*.md"
+  patterns:
+    - "**/test/**"
+    - "**/docs/**"
