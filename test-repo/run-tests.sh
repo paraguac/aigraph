@@ -137,10 +137,10 @@ echo ""
 PASS_COUNT=0
 TOTAL_TESTS=4
 
-if [ "$TRUE_DETECTIONS" -ge 30 ] && [ "$TRUE_DETECTIONS" -le 400 ]; then
+if [ "$TRUE_DETECTIONS" -ge 250 ] && [ "$TRUE_DETECTIONS" -le 350 ]; then
     PASS_COUNT=$((PASS_COUNT + 1))
 fi
-if [ "$FALSE_DETECTIONS" -le 100 ]; then
+if [ "$FALSE_DETECTIONS" -le 60 ]; then
     PASS_COUNT=$((PASS_COUNT + 1))
 fi
 [ "$ALLOW_VIOLATIONS" -ge 5 ] && PASS_COUNT=$((PASS_COUNT + 1))
